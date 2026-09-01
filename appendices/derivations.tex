@@ -1,0 +1,221 @@
+\chapter{핵심 수식 유도}
+\label{app:derivations}
+
+\section{softmax의 shift invariance와 안정적 계산}
+
+softmax는 모든 logit에 같은 상수를 더해도 변하지 않는다. 임의의 $c\in\R$에 대해
+\begin{equation}
+  \frac{e^{z_i+c}}{\sum_j e^{z_j+c}}
+  =\frac{e^c e^{z_i}}{e^c\sum_j e^{z_j}}
+  =\frac{e^{z_i}}{\sum_j e^{z_j}}
+\end{equation}
+가 성립하기 때문이다.
+
+안정적인 softmax는 가장 큰 logit을 빼서 overflow를 줄인다. $m=\max_j z_j$로 두면
+\begin{equation}
+  p_i=\frac{e^{z_i-m}}{\sum_j e^{z_j-m}}
+\end{equation}
+이고 모든 지수의 입력이 0 이하가 된다. 이 변환은 위의 shift invariance 때문에 확률을
+바꾸지 않는다.
+
+softmax의 Jacobian은 vocabulary logit 사이의 결합을 보여 준다. 미분하면
+\begin{equation}
+  \frac{\partial p_i}{\partial z_j}=p_i(\mathbf{1}[i=j]-p_j)
+\end{equation}
+를 얻는다. 따라서 token $j$의 logit 변화는 $j$의 확률뿐 아니라 다른 모든 token의
+확률에도 영향을 준다.
+
+\section{cross-entropy와 logit gradient}
+
+one-hot target $y$에 대한 softmax cross-entropy의 logit gradient는 $\vect{p}-\vect{y}$다.
+target index를 $k$라고 하면
+\begin{align}
+  \mathcal{L}&=-\log p_k
+  =-z_k+\log\sum_j e^{z_j},\\
+  \frac{\partial\mathcal{L}}{\partial z_i}
+  &=-\mathbf{1}[i=k]+\frac{e^{z_i}}{\sum_j e^{z_j}}
+  =p_i-y_i.
+\end{align}
+이 식은 정답 logit을 올리고 현재 확률에 비례하여 다른 logit을 내리는 gradient 신호를
+보여 준다.
+
+LM head의 weight gradient는 hidden state와 logit error의 outer product다. row-vector
+convention에서 $\vect{z}=\mat{W}_U\vect{h}+\vect{b}$라면
+\begin{equation}
+  \frac{\partial\mathcal{L}}{\partial\mat{W}_U}
+  =(\vect{p}-\vect{y})\vect{h}^{\mathsf T},\qquad
+  \frac{\partial\mathcal{L}}{\partial\vect{h}}
+  =\mat{W}_U^{\mathsf T}(\vect{p}-\vect{y}).
+\end{equation}
+이 gradient는 chain rule을 통해 앞 block과 embedding까지 전달된다.
+
+\section{scaled dot-product attention의 차원과 scale}
+
+attention score matrix의 두 $T$축은 destination과 source position에서 생긴다. batch와
+head 축을 생략하면
+\begin{equation}
+  \mat{Q}\in\R^{T\times d_h},\quad
+  \mat{K}^{\mathsf T}\in\R^{d_h\times T},\quad
+  \mat{Q}\mat{K}^{\mathsf T}\in\R^{T\times T}
+\end{equation}
+이며, $\mat{A}\mat{V}$는
+$(T\times T)(T\times d_h)=T\times d_h$가 된다.
+
+$1/\sqrt{d_h}$ scale은 독립이고 평균 0, 분산 1인 query/key coordinate라는 이상화에서
+dot-product 분산을 차원과 무관하게 만든다. $q_r k_r$들이 독립이고 분산 1이면
+\begin{equation}
+  \Var\!\left(\sum_{r=1}^{d_h}q_r k_r\right)=d_h,\qquad
+  \Var\!\left(\frac{1}{\sqrt{d_h}}\sum_{r=1}^{d_h}q_r k_r\right)=1.
+\end{equation}
+실제 학습된 q와 k는 이 독립 가정을 정확히 만족하지 않지만, 유도는 scale의 설계 동기를
+설명한다 \citep{vaswani2017attention}.
+
+causal mask는 softmax 뒤가 아니라 score에 적용하는 것이 정확한 정의다. 미래 score를
+$-\infty$로 두면 그 지수는 0이 되고 허용된 source만 다시 정규화된다. softmax 뒤의
+weight를 0으로 만들고 재정규화하지 않으면 row sum이 1이 아니므로 다른 함수가 된다.
+
+\section{여러 head의 출력은 residual update의 합이다}
+
+concatenation 뒤의 output projection은 head별 output projection의 합으로 분해된다.
+$\mat{O}_{\mathrm{cat}}=[\mat{O}^{1}\;\cdots\;\mat{O}^{H}]$이고
+$\mat{W}_O$를 대응하는 row block으로
+\begin{equation}
+  \mat{W}_O=
+  \begin{bmatrix}
+    \mat{W}_O^1\\ \vdots\\ \mat{W}_O^H
+  \end{bmatrix}
+\end{equation}
+라고 나누면 block multiplication으로
+\begin{equation}
+  \mat{O}_{\mathrm{cat}}\mat{W}_O
+  =\sum_{h=1}^{H}\mat{O}^{h}\mat{W}_O^h
+\end{equation}
+를 얻는다. 이 등식은 head output을 residual 방향별로 분석하는 근거다.
+
+head별 합은 head가 기능적으로 독립이라는 뜻이 아니다. 모든 head의 Q/K/V가 같은 residual
+input을 읽고, 뒤 layer가 합쳐진 결과를 비선형적으로 처리하므로 한 head의 효과는 다른
+head와 경로에 의존할 수 있다.
+
+\section{RoPE가 상대 offset을 포함하는 이유}
+
+2차원 회전행렬은 $\mat{R}(a)^{\mathsf T}\mat{R}(b)=\mat{R}(b-a)$를 만족한다. 삼각함수의
+덧셈정리를 회전행렬 곱에 적용하면 바로 확인할 수 있다. 따라서
+\begin{equation}
+  (\mat{R}(i)\vect{q})^{\mathsf T}(\mat{R}(j)\vect{k})
+  =\vect{q}^{\mathsf T}\mat{R}(j-i)\vect{k}
+\end{equation}
+이고 score가 절대 position의 차이 $j-i$에 의존한다.
+
+RoPE의 상대성은 content vector와 offset의 상호작용이다. 같은 offset이라도 $\vect{q}$와
+$\vect{k}$가 다르면 score가 다르며, RoPE만으로 특정 distance를 선택하는 attention pattern이
+보장되지는 않는다. frequency schedule과 학습된 projection이 함께 작동한다.
+
+\section{RMSNorm이 보존하고 바꾸는 양}
+
+gain과 $\epsilon$을 잠시 제외한 RMS normalization은 출력의 root-mean-square를 1로 만든다.
+$r(\vect{x})=\sqrt{d^{-1}\sum_i x_i^2}$라면
+\begin{equation}
+  r\!\left(\frac{\vect{x}}{r(\vect{x})}\right)=1
+\end{equation}
+이다. 실제 식에서는 $\epsilon>0$과 coordinate-wise gain $\vect{g}$ 때문에 최종 output의
+RMS가 정확히 1일 필요는 없다.
+
+RMSNorm은 입력의 전체 positive scale에 거의 불변이다. $\epsilon=0$이고 $a>0$이면
+\begin{equation}
+  \operatorname{RMSNorm}(a\vect{x})
+  =\vect{g}\odot\frac{a\vect{x}}{a r(\vect{x})}
+  =\operatorname{RMSNorm}(\vect{x}).
+\end{equation}
+$a<0$이면 방향 부호가 바뀌며, 유한 $\epsilon$에서는 정확한 scale invariance가 아니다.
+
+pre-norm residual stream의 norm은 layer를 거치며 계속 변할 수 있다. RMSNorm은 sublayer가
+읽는 사본을 정규화할 뿐, identity path의 residual state를 정규화된 값으로 교체하지 않기
+때문이다.
+
+\section{KV cache가 같은 attention을 계산하는 이유}
+
+KV cache는 과거 position의 key와 value가 새 token 때문에 바뀌지 않는 causal decoder에서
+projection을 재사용한다. 새 position $T+1$의 hidden state는 과거 position의 hidden state를
+바꾸지 않으므로, 같은 layer의 $\mat{K}_{1:T}$와 $\mat{V}_{1:T}$도 이전 prefill/decode 때
+계산한 값과 같다.
+
+cache와 전체 재계산의 새-position attention row는 이상적인 산술에서 동일하다. 두 방법
+모두 같은 $\vect{q}_{T+1}$과 연결된
+$[\mat{K}_{1:T};\vect{k}_{T+1}]$, $[\mat{V}_{1:T};\vect{v}_{T+1}]$를 사용하기 때문이다.
+과거 query row는 다음-token logit에 필요하지 않으므로 다시 만들지 않는다.
+
+KV cache의 원소 수는 batch, layer, KV head, sequence, head dimension과 K/V 두 종류의 곱이다.
+padding과 metadata를 제외한 단순 원소 수는
+\begin{equation}
+  N_{\mathrm{cache}}=2BLH_{kv}Td_h
+\end{equation}
+이며, element당 byte 수를 곱하면 기본 저장량을 얻는다. tensor parallel 복제, alignment,
+quantization과 paging은 실제 메모리를 바꾼다.
+
+\section{GQA가 줄이는 parameter와 cache}
+
+GQA는 query projection보다 key/value projection의 output dimension을 줄인다. bias를
+제외하고 input dimension이 $d$이면
+\begin{align}
+  N_Q&=dH_qd_h,\\
+  N_K+N_V&=2dH_{kv}d_h
+\end{align}
+이다. MHA의 $H_{kv}=H_q$에서 GQA의 작은 $H_{kv}$로 바꾸면 K/V parameter와 cache가 같은
+비율로 줄지만 Q와 output projection은 이 식에서 줄지 않는다.
+
+GQA의 계산량 감소는 단계에 따라 다르다. K/V projection과 cache traffic은 줄지만 각
+query head는 여전히 attention weight와 value sum을 계산한다. kernel과 sequence 길이를
+고려하지 않고 전체 inference FLOPs가 $H_{kv}/H_q$ 배로 줄었다고 말하면 부정확하다.
+
+\section{direct logit attribution과 final norm}
+
+final normalization이 없으면 residual update의 logit 기여는 정확히 선형이다. target
+token $a$와 contrast token $b$의 unembedding 차이를
+$\vect{w}_{ab}=\vect{w}_{U,a}-\vect{w}_{U,b}$라고 하면
+\begin{equation}
+  z_a-z_b=\vect{w}_{ab}^{\mathsf T}
+  \left(\vect{x}^{(0)}+\sum_c\Delta\vect{x}_c\right)+(b_a-b_b)
+\end{equation}
+이므로 각 $c$의 항은 $\vect{w}_{ab}^{\mathsf T}\Delta\vect{x}_c$다.
+
+final normalization이 있으면 구성요소 기여는 일반적으로 서로 결합된다. 예를 들어
+RMSNorm의 denominator는 모든 residual component의 합으로 결정되므로 한 update를 바꾸면
+다른 component가 받는 공통 scale도 바뀐다. 연구자는 normalization을 실제로 적용한
+component-wise projection, frozen-scale approximation 또는 local Jacobian 가운데 무엇을
+사용했는지 밝혀야 한다.
+
+\section{activation patching의 first-order 근사}
+
+attribution patching은 finite intervention을 Taylor 전개의 첫 항으로 근사한다. corrupted
+activation을 $\vect{h}_r$, clean activation을 $\vect{h}_c$라고 하면
+\begin{equation}
+  m(\vect{h}_c)-m(\vect{h}_r)
+  =\nabla m(\vect{h}_r)^{\mathsf T}(\vect{h}_c-\vect{h}_r)
+  +\mathcal{O}(\lVert\vect{h}_c-\vect{h}_r\rVert^2)
+\end{equation}
+다. 차이가 작고 곡률이 약할수록 first-order score가 실제 patch effect에 가까울 수 있다.
+
+큰 patch와 activation threshold는 선형 근사의 오차를 키울 수 있다. ReLU나 gate의 on/off가
+바뀌거나 attention softmax가 크게 이동하면 고차항이 중요해진다. 계산량을 줄이기 위해
+근사를 사용한 뒤 상위 후보에는 실제 patch를 수행하는 이유가 여기에 있다.
+
+\section{Jensen--Shannon divergence}
+
+Jensen--Shannon(JS) divergence는 두 확률분포의 대칭적인 차이를 측정한다. 분포
+$P,Q$와 $M=(P+Q)/2$에 대해
+\begin{equation}
+  \operatorname{JS}(P,Q)=\frac12\KL(P\|M)+\frac12\KL(Q\|M)
+\end{equation}
+로 정의한다. 자연로그를 쓰면 값은 $0$과 $\log 2$ 사이에 있으며, 로그 base 2를 쓰면
+상한은 1이다.
+
+JS divergence는 어떤 token의 logit이 변했는지를 혼자 알려 주지 않는다. vocabulary 전체
+분포의 변화를 요약하므로 target token과 무관한 mass 이동도 값에 들어간다. 사실 회상
+개입에서는 target logit difference와 JS divergence를 함께 보면 질문이 다른 두 metric을
+구분할 수 있다.
+
+\begin{studybox}
+각 유도는 작은 무작위 tensor를 double precision으로 계산하여 등식을 검산한다. 수학적
+등식의 허용 오차와 GPU mixed-precision kernel의 허용 오차를 따로 정하며, shape와 축을
+assertion으로 고정한다.
+\end{studybox}

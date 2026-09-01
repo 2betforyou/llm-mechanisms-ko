@@ -1,0 +1,59 @@
+\documentclass[11pt,oneside,openany]{scrbook}
+
+\input{preamble}
+
+\title{언어모델의 계산을 해부하다}
+\subtitle{선형대수에서 기계론적 해석가능성까지}
+\author{LLM\_Study}
+\date{초판 연구 원고 · 2026년 8월 23일 기준}
+
+\begin{document}
+
+\frontmatter
+\maketitle
+\input{frontmatter/preface}
+\input{frontmatter/evidence-policy}
+\input{frontmatter/roadmap}
+\tableofcontents
+\listoffigures
+\listoftables
+
+\mainmatter
+
+\part{Phase 1 · 신경망 표현의 수학}
+\input{chapters/phase1-representation}
+
+\part{Phase 2 · Transformer 순전파}
+\input{chapters/phase2-forward-pass}
+
+\part{Phase 3 · 현대 decoder-only LLM}
+\input{chapters/phase3-modern-architecture}
+
+\part{Phase 4 · 표현을 관찰하는 방법}
+\input{chapters/phase4-representation-analysis}
+
+\part{Phase 5 · 회로와 내부 알고리즘}
+\input{chapters/phase5-circuits}
+
+\part{Phase 6 · 인과적 기계론적 해석}
+\input{chapters/phase6-causal-interpretability}
+
+\part{Phase 7 · 실제 LLM 행동의 메커니즘}
+\input{chapters/phase7-behavior-mechanisms}
+
+\part{현재의 경계와 연구 프로그램}
+\input{chapters/conclusion}
+
+\appendix
+\part{부록}
+\input{appendices/notation}
+\input{appendices/derivations}
+\input{appendices/experiments}
+\input{appendices/claim-ledger}
+
+\backmatter
+\bibliographystyle{plainnat}
+\bibliography{references}
+\printindex
+
+\end{document}

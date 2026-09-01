@@ -1,0 +1,135 @@
+\contentsline {chapter}{서문: 우리가 알고 있는 것과 아직 모르는 것}{ii}{chapter*.1}%
+\contentsline {chapter}{증거와 표현의 규칙}{iv}{chapter*.2}%
+\contentsline {chapter}{Phase 1--7 학습 지도}{vii}{chapter*.3}%
+\contentsline {part}{\numberline {I}Phase 1 · 신경망 표현의 수학}{1}{part.1}%
+\contentsline {chapter}{\numberline {1}벡터에서 신경망 표현까지}{2}{chapter.1}%
+\contentsline {section}{\numberline {1.1}결론부터: hidden state는 좌표를 가진 벡터다}{2}{section.1.1}%
+\contentsline {section}{\numberline {1.2}벡터공간, 기저와 좌표}{2}{section.1.2}%
+\contentsline {subsection}{\numberline {1.2.1}tensor와 축}{3}{subsection.1.2.1}%
+\contentsline {section}{\numberline {1.3}행렬은 선형사상이다}{3}{section.1.3}%
+\contentsline {subsection}{\numberline {1.3.1}rank, kernel과 정보 손실}{3}{subsection.1.3.1}%
+\contentsline {section}{\numberline {1.4}내적, norm, 각도와 cosine similarity}{3}{section.1.4}%
+\contentsline {section}{\numberline {1.5}고윳값, SVD와 저차원 구조}{4}{section.1.5}%
+\contentsline {section}{\numberline {1.6}확률분포, logits와 softmax}{5}{section.1.6}%
+\contentsline {section}{\numberline {1.7}미분, 계산 그래프와 역전파}{5}{section.1.7}%
+\contentsline {section}{\numberline {1.8}embedding, feature, activation, representation}{6}{section.1.8}%
+\contentsline {section}{\numberline {1.9}Phase 1 학습 점검}{7}{section.1.9}%
+\contentsline {part}{\numberline {II}Phase 2 · Transformer 순전파}{8}{part.2}%
+\contentsline {chapter}{\numberline {2}Decoder-only Transformer의 정확한 순전파}{9}{chapter.2}%
+\contentsline {section}{\numberline {2.1}결론부터: 다음 토큰 분포는 합성함수의 출력이다}{9}{section.2.1}%
+\contentsline {section}{\numberline {2.2}기호와 tensor shape}{9}{section.2.2}%
+\contentsline {section}{\numberline {2.3}토큰 ID에서 residual stream으로}{9}{section.2.3}%
+\contentsline {section}{\numberline {2.4}한 attention head의 모든 계산}{10}{section.2.4}%
+\contentsline {section}{\numberline {2.5}multi-head attention과 output projection}{11}{section.2.5}%
+\contentsline {section}{\numberline {2.6}MLP update와 잔차 덧셈}{12}{section.2.6}%
+\contentsline {section}{\numberline {2.7}마지막 정규화, unembedding과 logits}{12}{section.2.7}%
+\contentsline {section}{\numberline {2.8}autoregressive generation}{13}{section.2.8}%
+\contentsline {section}{\numberline {2.9}완전한 shape 추적 예제}{13}{section.2.9}%
+\contentsline {section}{\numberline {2.10}Phase 2 학습 점검}{13}{section.2.10}%
+\contentsline {part}{\numberline {III}Phase 3 · 현대 decoder-only LLM}{15}{part.3}%
+\contentsline {chapter}{\numberline {3}현대 LLM의 구성요소와 실행 경로}{16}{chapter.3}%
+\contentsline {section}{\numberline {3.1}결론부터: 현대 모델은 하나의 고정 설계가 아니다}{16}{section.3.1}%
+\contentsline {section}{\numberline {3.2}decoder-only와 causal attention}{16}{section.3.2}%
+\contentsline {section}{\numberline {3.3}pre-normalization과 RMSNorm}{17}{section.3.3}%
+\contentsline {section}{\numberline {3.4}RoPE}{17}{section.3.4}%
+\contentsline {section}{\numberline {3.5}SwiGLU}{18}{section.3.5}%
+\contentsline {section}{\numberline {3.6}MHA, MQA와 GQA}{18}{section.3.6}%
+\contentsline {section}{\numberline {3.7}tokenization과 vocabulary}{19}{section.3.7}%
+\contentsline {section}{\numberline {3.8}KV cache, prefill과 decode}{19}{section.3.8}%
+\contentsline {section}{\numberline {3.9}FlashAttention과 수치적 동등성}{20}{section.3.9}%
+\contentsline {section}{\numberline {3.10}weight tying과 LM head}{21}{section.3.10}%
+\contentsline {section}{\numberline {3.11}훈련이 가중치를 만드는 과정}{21}{section.3.11}%
+\contentsline {section}{\numberline {3.12}Phase 3 학습 점검}{22}{section.3.12}%
+\contentsline {part}{\numberline {IV}Phase 4 · 표현을 관찰하는 방법}{23}{part.4}%
+\contentsline {chapter}{\numberline {4}내부 표현을 읽는 방법과 그 한계}{24}{chapter.4}%
+\contentsline {section}{\numberline {4.1}결론부터: 읽을 수 있다는 사실은 사용된다는 뜻이 아니다}{24}{section.4.1}%
+\contentsline {section}{\numberline {4.2}분산 표현과 특징 방향}{24}{section.4.2}%
+\contentsline {section}{\numberline {4.3}표현 공간의 기하}{25}{section.4.3}%
+\contentsline {section}{\numberline {4.4}선형 probe와 control task}{25}{section.4.4}%
+\contentsline {section}{\numberline {4.5}logit lens와 tuned lens}{26}{section.4.5}%
+\contentsline {section}{\numberline {4.6}중첩과 다의적 neuron}{26}{section.4.6}%
+\contentsline {section}{\numberline {4.7}희소 오토인코더}{27}{section.4.7}%
+\contentsline {section}{\numberline {4.8}표현 분석의 최소 증거 기준}{27}{section.4.8}%
+\contentsline {section}{\numberline {4.9}Phase 4 학습 점검}{28}{section.4.9}%
+\contentsline {part}{\numberline {V}Phase 5 · 회로와 내부 알고리즘}{29}{part.5}%
+\contentsline {chapter}{\numberline {5}잔차 스트림, 회로와 내부 알고리즘}{30}{chapter.5}%
+\contentsline {section}{\numberline {5.1}결론부터: 회로는 행동에 상대적인 계산 부분그래프다}{30}{section.5.1}%
+\contentsline {section}{\numberline {5.2}residual stream을 통신 채널로 보기}{30}{section.5.2}%
+\contentsline {section}{\numberline {5.3}direct logit attribution과 경로 전개}{31}{section.5.3}%
+\contentsline {section}{\numberline {5.4}QK 회로와 OV 회로}{31}{section.5.4}%
+\contentsline {section}{\numberline {5.5}head composition}{32}{section.5.5}%
+\contentsline {section}{\numberline {5.6}induction head}{32}{section.5.6}%
+\contentsline {section}{\numberline {5.7}IOI 회로}{33}{section.5.7}%
+\contentsline {section}{\numberline {5.8}MLP feature와 memory 해석}{33}{section.5.8}%
+\contentsline {section}{\numberline {5.9}완전한 알고리즘을 아는 특수 사례}{34}{section.5.9}%
+\contentsline {section}{\numberline {5.10}Phase 5 학습 점검}{34}{section.5.10}%
+\contentsline {part}{\numberline {VI}Phase 6 · 인과적 기계론적 해석}{36}{part.6}%
+\contentsline {chapter}{\numberline {6}개입으로 메커니즘을 시험하기}{37}{chapter.6}%
+\contentsline {section}{\numberline {6.1}결론부터: 위치 찾기와 메커니즘 설명은 다르다}{37}{section.6.1}%
+\contentsline {section}{\numberline {6.2}관찰, 상관과 개입}{37}{section.6.2}%
+\contentsline {section}{\numberline {6.3}ablation}{37}{section.6.3}%
+\contentsline {section}{\numberline {6.4}activation patching과 causal tracing}{38}{section.6.4}%
+\contentsline {section}{\numberline {6.5}path patching과 edge intervention}{39}{section.6.5}%
+\contentsline {section}{\numberline {6.6}interchange intervention과 causal abstraction}{39}{section.6.6}%
+\contentsline {section}{\numberline {6.7}attribution과 gradient 근사}{39}{section.6.7}%
+\contentsline {section}{\numberline {6.8}자동 회로 발견}{40}{section.6.8}%
+\contentsline {section}{\numberline {6.9}faithfulness, completeness, minimality}{40}{section.6.9}%
+\contentsline {section}{\numberline {6.10}self-repair와 방법 민감도}{41}{section.6.10}%
+\contentsline {section}{\numberline {6.11}Phase 6 학습 점검}{41}{section.6.11}%
+\contentsline {part}{\numberline {VII}Phase 7 · 실제 LLM 행동의 메커니즘}{43}{part.7}%
+\contentsline {chapter}{\numberline {7}실제 LLM 행동에서 발견된 메커니즘}{44}{chapter.7}%
+\contentsline {section}{\numberline {7.1}결론부터: 발견은 구체적이며 보편성은 미확립이다}{44}{section.7.1}%
+\contentsline {section}{\numberline {7.2}factual recall}{44}{section.7.2}%
+\contentsline {section}{\numberline {7.3}factual recall의 세 단계: 원 연구의 정확한 주장}{44}{section.7.3}%
+\contentsline {subsection}{\numberline {7.3.1}2510.09033의 Section 3.3은 무엇을 다시 정의하는가}{45}{subsection.7.3.1}%
+\contentsline {section}{\numberline {7.4}hallucination과 내부 상태}{46}{section.7.4}%
+\contentsline {section}{\numberline {7.5}in-context learning과 copying}{46}{section.7.5}%
+\contentsline {section}{\numberline {7.6}reasoning과 chain-of-thought}{47}{section.7.6}%
+\contentsline {section}{\numberline {7.7}entity tracking, planning과 refusal}{47}{section.7.7}%
+\contentsline {section}{\numberline {7.8}대형 모델의 attribution graph}{47}{section.7.8}%
+\contentsline {section}{\numberline {7.9}모델 간 일반화 문제}{48}{section.7.9}%
+\contentsline {section}{\numberline {7.10}Phase 7 학습 점검}{49}{section.7.10}%
+\contentsline {part}{\numberline {VIII}현재의 경계와 연구 프로그램}{50}{part.8}%
+\contentsline {chapter}{\numberline {8}완전한 설명은 어디까지 왔는가}{51}{chapter.8}%
+\contentsline {section}{\numberline {8.1}현재의 결론}{51}{section.8.1}%
+\contentsline {section}{\numberline {8.2}완전성, 충실성, 압축성과 확장성}{51}{section.8.2}%
+\contentsline {section}{\numberline {8.3}알려진 것의 경계}{52}{section.8.3}%
+\contentsline {section}{\numberline {8.4}연구 프로그램}{52}{section.8.4}%
+\contentsline {section}{\numberline {8.5}종료 조건이 아니라 갱신 규칙}{53}{section.8.5}%
+\def \@chapapp {\appendixname }
+\contentsline {part}{\numberline {IX}부록}{54}{part.9}%
+\contentsline {chapter}{\numberline {A}기호와 용어의 기준}{55}{appendix.A}%
+\contentsline {section}{\numberline {A.1}기호를 고정하는 이유}{55}{section.A.1}%
+\contentsline {section}{\numberline {A.2}축과 index의 방향}{56}{section.A.2}%
+\contentsline {section}{\numberline {A.3}한국어와 원어 용어}{56}{section.A.3}%
+\contentsline {section}{\numberline {A.4}인식론적 동사의 강도}{57}{section.A.4}%
+\contentsline {chapter}{\numberline {B}핵심 수식 유도}{58}{appendix.B}%
+\contentsline {section}{\numberline {B.1}softmax의 shift invariance와 안정적 계산}{58}{section.B.1}%
+\contentsline {section}{\numberline {B.2}cross-entropy와 logit gradient}{58}{section.B.2}%
+\contentsline {section}{\numberline {B.3}scaled dot-product attention의 차원과 scale}{59}{section.B.3}%
+\contentsline {section}{\numberline {B.4}여러 head의 출력은 residual update의 합이다}{59}{section.B.4}%
+\contentsline {section}{\numberline {B.5}RoPE가 상대 offset을 포함하는 이유}{59}{section.B.5}%
+\contentsline {section}{\numberline {B.6}RMSNorm이 보존하고 바꾸는 양}{60}{section.B.6}%
+\contentsline {section}{\numberline {B.7}KV cache가 같은 attention을 계산하는 이유}{60}{section.B.7}%
+\contentsline {section}{\numberline {B.8}GQA가 줄이는 parameter와 cache}{60}{section.B.8}%
+\contentsline {section}{\numberline {B.9}direct logit attribution과 final norm}{61}{section.B.9}%
+\contentsline {section}{\numberline {B.10}activation patching의 first-order 근사}{61}{section.B.10}%
+\contentsline {section}{\numberline {B.11}Jensen--Shannon divergence}{61}{section.B.11}%
+\contentsline {chapter}{\numberline {C}재현 실험 프로토콜}{63}{appendix.C}%
+\contentsline {section}{\numberline {C.1}재현의 최소 단위}{63}{section.C.1}%
+\contentsline {section}{\numberline {C.2}Lab 1: 손으로 계산한 attention과 코드의 일치}{63}{section.C.2}%
+\contentsline {section}{\numberline {C.3}Lab 2: 최소 decoder-only Transformer 구현}{64}{section.C.3}%
+\contentsline {section}{\numberline {C.4}Lab 3: 공개 reference implementation과 대조}{64}{section.C.4}%
+\contentsline {section}{\numberline {C.5}Lab 4: prefill과 KV-cache decode의 동등성}{64}{section.C.5}%
+\contentsline {section}{\numberline {C.6}Lab 5: probe는 정보 존재만 보고한다}{65}{section.C.6}%
+\contentsline {section}{\numberline {C.7}Lab 6: induction circuit 재현}{65}{section.C.7}%
+\contentsline {section}{\numberline {C.8}Lab 7: activation patching의 방법 민감도}{65}{section.C.8}%
+\contentsline {section}{\numberline {C.9}Lab 8: 사실 회상의 세 단계 재현}{65}{section.C.9}%
+\contentsline {section}{\numberline {C.10}Lab 9: 2510.09033의 분류와 검출 결과 감사}{66}{section.C.10}%
+\contentsline {section}{\numberline {C.11}Lab 10: ground-truth circuit에서 방법 평가}{66}{section.C.11}%
+\contentsline {section}{\numberline {C.12}실험 중단과 실패 보고 규칙}{66}{section.C.12}%
+\contentsline {chapter}{\numberline {D}주장--증거 감사표}{67}{appendix.D}%
+\contentsline {section}{\numberline {D.1}감사표의 목적}{67}{section.D.1}%
+\contentsline {section}{\numberline {D.2}갱신 절차}{69}{section.D.2}%
+\contentsline {chapter}{찾아보기}{76}{section*.8}%
+\providecommand \tocbasic@end@toc@file {}\tocbasic@end@toc@file 

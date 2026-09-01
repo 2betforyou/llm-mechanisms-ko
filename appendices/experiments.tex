@@ -1,0 +1,187 @@
+\chapter{재현 실험 프로토콜}
+\label{app:experiments}
+
+\section{재현의 최소 단위}
+
+해석 실험은 그림이 아니라 실행 조건과 raw 결과가 함께 있어야 재현된다. 모든 실험은
+다음 manifest를 저장한다.
+
+\begin{itemize}
+  \item repository commit과 변경 여부;
+  \item model repository, revision과 weight file digest;
+  \item tokenizer repository, revision, chat template와 실제 token IDs;
+  \item framework, CUDA 또는 Metal, kernel, device와 dtype;
+  \item random seed, deterministic 설정과 batch 순서;
+  \item dataset source, license, sample ID와 필터링 규칙;
+  \item hook 이름, tensor shape와 저장 시점;
+  \item intervention, baseline, metric과 aggregation code;
+  \item 표에 쓰기 전 sample-level raw value와 실패 log.
+\end{itemize}
+
+artifact directory는 실험 입력과 결과를 덮어쓰지 않도록 run ID별로 분리한다. 다음 구조는
+필수 규칙이 아니라 권장 예시다.
+
+\begin{lstlisting}[language={},caption={권장 실험 artifact 구조}]
+runs/<run-id>/
+  manifest.json
+  config.yaml
+  tokenized_inputs.jsonl
+  metrics.parquet
+  interventions.parquet
+  figures/
+  logs/
+  environment.txt
+\end{lstlisting}
+
+\section{Lab 1: 손으로 계산한 attention과 코드의 일치}
+
+첫 실험의 목표는 길이 3, head dimension 2인 causal attention을 한 숫자도 건너뛰지 않고
+재현하는 것이다. 정수 또는 소수 한 자리의 Q, K, V를 직접 정하고 score, scale, mask,
+row-wise softmax와 weighted sum을 종이에 계산한다.
+
+성공 기준은 독립 구현 두 개가 같은 결과를 내는 것이다. 하나는 명시적인 for-loop로,
+다른 하나는 matrix multiplication으로 작성하고 double precision에서 각 원소 오차를
+$10^{-10}$ 이하로 확인한다. mask를 softmax 전과 후에 잘못 적용한 negative test도 넣어
+차이를 기록한다.
+
+\section{Lab 2: 최소 decoder-only Transformer 구현}
+
+두 번째 실험의 목표는 high-level Transformer module을 호출하지 않고 한 block의 모든
+tensor를 직접 만드는 것이다. 최소 구현에는 token embedding, RMSNorm, RoPE, causal
+MHA 또는 GQA, SwiGLU, residual addition, final norm과 LM head가 포함되어야 한다.
+
+성공 기준은 모든 중간 shape와 causal invariant가 assertion을 통과하는 것이다. 미래 token
+ID만 바꾼 두 sequence를 넣었을 때 그 이전 position의 logits가 허용 오차 안에서 같아야
+한다. 각 attention row의 합, masked weight, RMS denominator와 final vocabulary dimension도
+검사한다.
+
+hook 출력은 parameter와 activation을 분리하여 두 종류의 값을 혼동하지 않게 해야 한다.
+다음 의사코드는 최소 shape trace를 보여 준다.
+
+\begin{lstlisting}[language=Python,caption={한 block의 shape 추적 의사코드}]
+x = embed(token_ids)                 # [B, T, d]
+r = rmsnorm_attn(x)                  # [B, T, d]
+q, k, v = project_and_split(r)       # [B, Hq/Hkv, T, dh]
+q, k = apply_rope(q, k, positions)
+a = causal_softmax(q @ k.transpose(-1, -2) / sqrt(dh))
+x = x + merge_heads(a @ repeat_kv(v)) @ W_o
+r = rmsnorm_mlp(x)
+x = x + (silu(r @ W_gate) * (r @ W_up)) @ W_down
+logits = final_norm(x) @ W_unembed.T # [B, T, V]
+\end{lstlisting}
+
+\section{Lab 3: 공개 reference implementation과 대조}
+
+세 번째 실험의 목표는 직접 구현한 block을 실제 공개 checkpoint의 reference code와
+대조하는 것이다. 같은 weight를 load하고 tokenizer output, embedding, 각 normalization,
+Q/K/V, RoPE 뒤 tensor, attention output, MLP output, residual과 logits를 hook한다.
+
+성공 기준은 dtype별 허용 오차와 첫 불일치 지점을 자동 보고하는 것이다. 마지막 logit만
+비슷하다고 통과시키지 않으며, layer별 최대 절대오차와 상대오차를 저장한다. fused kernel로
+중간값을 직접 꺼낼 수 없으면 unfused reference path와 비교한다.
+
+불일치의 흔한 원인은 transposed weight, RoPE의 even/odd packing, GQA의 head mapping,
+RMSNorm $\epsilon$, bias, position offset와 tokenizer special token이다. 원인을 고친 뒤에는
+해당 오류를 재현하는 regression test를 남긴다.
+
+\section{Lab 4: prefill과 KV-cache decode의 동등성}
+
+네 번째 실험의 목표는 full recomputation과 cached decode가 같은 next-token distribution을
+계산하는지 검증하는 것이다. prompt의 마지막 logit을 full pass로 얻고, token을 하나씩
+넣는 cached path의 각 step logit과 비교한다.
+
+성공 기준은 동일 dtype과 deterministic kernel에서 정한 오차 안에 있고 greedy token이
+모든 step에서 일치하는 것이다. cache의 layer, KV head, sequence와 head-dimension 축을
+기록하고, RoPE position이 cache length만큼 offset되는지 검사한다.
+
+\section{Lab 5: probe는 정보 존재만 보고한다}
+
+다섯 번째 실험의 목표는 representation에서 label을 복원하는 증거와 모델 사용의 증거를
+분리하는 것이다. factual prompt의 last-subject와 last-position residual을 layer별로 모아
+relation 또는 정답 class에 대한 regularized linear probe를 학습한다.
+
+성공 기준은 held-out entity split, random-label control과 majority baseline을 포함하는 것이다.
+같은 entity가 train과 test의 paraphrase에 동시에 들어가지 않도록 split 단위를 entity로
+잡는다. probe accuracy, calibration, selectivity와 confidence interval을 함께 보고한다.
+
+후속 intervention은 probe direction이 원 모델 행동에 미치는 효과를 따로 시험한다. direction을
+더하고 빼는 scale sweep에서 target logit, KL divergence, unrelated-task degradation과 norm
+변화를 기록한다. 효과가 있어도 자연 입력에서 원 모델이 같은 방향을 사용한다는 결론은
+path-level 검증 전까지 보류한다.
+
+\section{Lab 6: induction circuit 재현}
+
+여섯 번째 실험의 목표는 반복 token pattern에서 induction score와 인과 효과를 함께
+측정하는 것이다. 무작위 token 열의 앞부분을 뒤에서 반복하고, 현재 token과 같은 token의
+바로 다음 position에 attention하는 pattern을 head별로 계산한다.
+
+성공 기준은 pattern score가 높은 head의 ablation이 반복 구간의 next-token loss를 선택적으로
+악화시키는지 확인하는 것이다. 비반복 control 구간, 크기 일치 random head와 previous-token
+head 후보를 함께 비교한다. 큰 attention pattern만으로 induction head label을 확정하지
+않는다.
+
+\section{Lab 7: activation patching의 방법 민감도}
+
+일곱 번째 실험의 목표는 clean/corrupted pair에서 localization map이 metric과 corruption에
+얼마나 의존하는지 측정하는 것이다. subject 또는 relation 하나만 바꾼 factual prompt pair를
+만들고 residual pre, attention output과 MLP output을 position-layer별로 patch한다.
+
+성공 기준은 최소 세 metric과 세 baseline의 순위 상관을 보고하는 것이다. target logit,
+logit difference와 probability를 비교하고, zero, mean과 resample replacement를 비교한다.
+sample별 recovery가 분모가 작은 경우를 별도 표시하고, 평균 heatmap만 보고하지 않는다.
+
+\section{Lab 8: 사실 회상의 세 단계 재현}
+
+여덟 번째 실험의 목표는 Geva 등의 세 단계를 같은 모델에서 재현한 뒤 architecture transfer를
+시험하는 것이다. 첫 단계에서는 last-subject projection의 attribute rate와 early MLP
+cancellation을, 둘째 단계에서는 relation-to-last attention knockout을, 셋째 단계에서는
+subject-to-last upper attention과 attribute logit 기여를 측정한다.
+
+성공 기준은 원 논문의 GPT-2 XL 또는 GPT-J 조건을 먼저 재현하고, Llama/Qwen 계열의 결과를
+별도 실험으로 보고하는 것이다. layer 번호는 절대값과 전체 깊이에 대한 비율을 함께 기록하며,
+다른 architecture에서 실패해도 원 결과의 재현 실패와 generalization 실패를 구분한다.
+
+\section{Lab 9: 2510.09033의 분류와 검출 결과 감사}
+
+아홉 번째 실험의 목표는 FA/AH/UH label이 subject-reliance threshold에 얼마나 민감한지
+검증하는 것이다. greedy BF16 생성, factual correctness 판정, subject-to-last attention
+blocking, 원 분포와 개입 분포의 JS divergence, FA 평균 threshold의 순서로 원 절차를
+재현한다 \citep{cheang2026knowledge}.
+
+성공 기준은 threshold sweep과 독립 label audit를 포함하는 것이다. FA 평균뿐 아니라
+quantile과 held-out calibration threshold를 비교하고, AH/UH 표본 이동률을 보고한다.
+probe train/test split은 entity와 template leakage를 막으며, correctness judge의 일부
+표본은 사람이 blind review한다.
+
+원 연구의 conclusion과 label construction의 결합을 따로 검사한다. AH/UH가 subject-flow
+intervention으로 정의되므로 같은 flow metric에서 나타나는 차이는 부분적으로 예상된다.
+새로운 검증에는 label에 직접 쓰지 않은 intervention, paraphrase robustness와 외부 factual
+verification을 추가한다.
+
+\section{Lab 10: ground-truth circuit에서 방법 평가}
+
+열 번째 실험의 목표는 자연 모델에 적용하기 전에 해석 도구의 탐지 오류를 알려진 program에서
+측정하는 것이다. Tracr로 token frequency, sorting 또는 parenthesis checking program을
+컴파일하고 source code를 보지 않는 분석 단계와 ground-truth 비교 단계를 분리한다.
+
+성공 기준은 component와 edge recovery의 precision, recall, faithfulness와 description length를
+함께 보고하는 것이다. probe, activation patching, ACDC, attribution patching과 SAE를 같은
+node granularity에서 비교한다. 알고리즘 이름을 맞히는 것뿐 아니라 unseen input과
+intervention output을 예측하는지도 평가한다.
+
+\section{실험 중단과 실패 보고 규칙}
+
+실패한 재현은 조건을 충분히 기록하면 유효한 결과다. model revision, token mismatch,
+memory 부족, numerical divergence, 불안정한 metric과 논문에 없는 구현 세부사항을 실패
+유형으로 나누어 남긴다.
+
+결론을 바꾸는 분석 선택은 결과를 본 뒤 조용히 수정하지 않는다. threshold, layer window,
+metric과 sample filter를 사전에 config에 저장하고, 사후 탐색은 exploratory analysis로
+표시한다. 여러 선택을 시험했다면 성공한 설정만 골라 보고하지 않고 전체 sensitivity를
+제시한다.
+
+\begin{studybox}[공통 통과 기준]
+실험은 다른 사람이 새 환경에서 manifest만으로 실행할 수 있고, raw sample-level 결과에서
+책의 표와 그림을 다시 만들 수 있으며, negative control과 적어도 하나의 합리적인 대안
+설정에서 핵심 결론이 유지될 때 통과한다.
+\end{studybox}

@@ -1,0 +1,297 @@
+\chapter{벡터에서 신경망 표현까지}
+\label{chap:phase1}
+
+\section{결론부터: hidden state는 좌표를 가진 벡터다}
+
+특정 layer $\ell$과 token position $t$의 hidden state를
+$\vect{h}^{(\ell)}_t\in\R^{d_{\text{model}}}$로 쓸 수 있다. batch와 모든 위치를
+함께 모으면
+\begin{equation}
+  \mat{X}^{(\ell)}\in
+  \R^{B\times T\times d_{\text{model}}}
+\end{equation}
+이다. 이것은 비밀 정보가 들어 있는 별도 저장장치가 아니라 그 지점까지의 계산 결과다.
+모델 구현에서 ``hidden states''는 보통 여러 layer의 이런 activation을 뜻하며,
+기계론적 분석에서는 residual branch들이 더해지는 공용 상태라는 점을 강조해
+``residual stream''이라고 부른다.
+\index{hidden state@은닉 상태(hidden state)}
+\index{residual stream@잔차 스트림(residual stream)}
+
+\begin{factbox}
+벡터는 기저를 정해야 숫자 좌표로 표시된다. 따라서 hidden state의 $i$번째 좌표가
+항상 독립된 하나의 인간 개념이라는 결론은 선형대수에서 나오지 않는다. 같은 추상
+벡터는 가역적인 기저변환 아래 다른 좌표를 갖는다.
+\end{factbox}
+
+이 Phase의 목적은 벡터를 단순한 숫자 목록으로 보지 않고, 선형사상과 비선형사상이
+정보를 표현하고 변환하는 공간으로 보는 것이다. 필요한 수학의 범위는
+\citet{deisenroth2020mml}의 선형대수·해석기하·벡터미적분과 대응한다.
+
+\section{벡터공간, 기저와 좌표}
+
+실수 벡터공간 $V$는 벡터 덧셈과 scalar multiplication에 대해 닫혀 있고 해당 연산의
+공리를 만족하는 집합이다. $\R^d$는 표준 예다. 벡터
+$\vect{x}\in\R^d$는 표준기저 $\vect{e}_1,\ldots,\vect{e}_d$에 대해
+\begin{equation}
+  \vect{x}=\sum_{i=1}^{d}x_i\vect{e}_i
+\end{equation}
+로 쓴다. $x_i$는 벡터 자체가 아니라 선택한 기저에서의 좌표다.
+\index{basis@기저(basis)}
+
+선형독립인 벡터들의 집합이 공간 전체를 span하면 기저다. 벡터들
+$\vect{v}_1,\ldots,\vect{v}_k$의 span은
+\begin{equation}
+  \operatorname{span}\{\vect{v}_1,\ldots,\vect{v}_k\}
+  =\left\{\sum_{i=1}^k a_i\vect{v}_i:a_i\in\R\right\}
+\end{equation}
+이다. 표현 연구에서 ``어떤 정보가 subspace에 있다''는 문장은 보통 후보 방향들이
+span하는 부분공간에서 그 정보를 decode하거나 조작할 수 있다는 뜻이다. 어떤
+부분공간이 의미론적으로 유일한지는 별도의 식별 문제다.
+
+일관된 기저변환은 함수는 보존하지만 개별 좌표의 값을 바꾼다. 기저를 $\mat{S}$로
+바꿔 좌표를 $\tilde{\vect{x}}=\mat{S}^{-1}\vect{x}$로 쓰면, 동일한 선형사상
+$\mat{W}$의 좌표표현은 $\tilde{\mat{W}}=\mat{S}^{-1}\mat{W}\mat{S}$가 된다.
+
+\subsection{tensor와 축}
+
+tensor는 문맥에 따라 다중선형대수의 객체 또는 다차원 수치 배열을 뜻한다. 딥러닝
+구현에서는 후자의 뜻이 흔하다. shape $\shape{B,T,d}$는 각각 batch, sequence,
+model-feature 축을 뜻한다. 축 이름을 생략하면 같은 숫자 배열이라도 어떤 contraction을
+해야 하는지 알 수 없다.
+
+token별 선형변환은 row-vector 구현 관례에서 다음 contraction으로 계산된다.
+\begin{equation}
+  \mat{Y}_{b,t,:}=\mat{X}_{b,t,:}\mat{W},\qquad
+  \mat{X}\in\R^{B\times T\times d_{\text{in}}},\quad
+  \mat{W}\in\R^{d_{\text{in}}\times d_{\text{out}}}
+\end{equation}
+로 계산되며 $\mat{Y}\in\R^{B\times T\times d_{\text{out}}}$다. 논문이 column
+vector 관례를 쓰면 $\vect{y}=\mat{W}\vect{x}$이고 가중치 shape가 전치된다. 두
+표기법은 모순이 아니지만 한 유도 안에서는 섞으면 안 된다.
+
+\section{행렬은 선형사상이다}
+
+선형사상 $f:V\to U$는
+$f(a\vect{x}+b\vect{y})=af(\vect{x})+bf(\vect{y})$를 만족한다. 기저를 고르면
+행렬 $\mat{W}$로 표현된다. column-vector 관례에서
+\begin{equation}
+  \vect{y}=\mat{W}\vect{x},\qquad
+  \mat{W}\in\R^{m\times d},\quad
+  \vect{x}\in\R^d,\quad \vect{y}\in\R^m.
+\end{equation}
+행렬의 $i$번째 row와 $\vect{x}$의 내적이 출력 $y_i$다. 반대로 각 column은 해당
+입력 좌표가 출력 공간에 기여하는 방향이다.
+
+$\vect{y}=\mat{W}\vect{x}+\vect{b}$는 affine map이다. bias가 0이 아니면 원점을
+보존하지 않으므로 엄밀히 선형은 아니지만 신경망 문헌에서는 흔히 ``linear layer''라고
+부른다. embedding lookup도 one-hot vector $\vect{e}_{v}$에 행렬을 곱하는
+선형연산으로 쓸 수 있다.
+
+\subsection{rank, kernel과 정보 손실}
+
+$\rank(\mat{W})$는 column space의 차원이다. $\rank(\mat{W})<d$이면 서로 다른
+입력이 같은 출력으로 갈 수 있다. kernel은
+\begin{equation}
+  \ker(\mat{W})=\{\vect{x}:\mat{W}\vect{x}=\vect{0}\}
+\end{equation}
+이며, 여기에 속하는 변화는 해당 선형사상 뒤에서 관찰되지 않는다. attention head의
+projection이 보통 $d_{\text{model}}$보다 작은 $d_{\text{head}}$로 향한다는 사실은 한
+head가 residual space 전체를 독립적으로 읽거나 쓰지 못한다는 정확한 rank 제약을 준다.
+
+선형사상의 합과 합성은 구분해야 한다.
+\begin{equation}
+  (\mat{A}+\mat{B})\vect{x}
+  =\mat{A}\vect{x}+\mat{B}\vect{x},\qquad
+  (\mat{A}\mat{B})\vect{x}
+  =\mat{A}(\mat{B}\vect{x}).
+\end{equation}
+잔차 스트림은 여러 update의 합을 만들고, 회로의 경로는 여러 projection의 합성을
+만든다. 이 차이가 이후 direct path와 composed path를 분해하는 기초가 된다.
+
+\section{내적, norm, 각도와 cosine similarity}
+
+표준 Euclidean 내적과 $L_2$ norm은
+\begin{equation}
+  \langle\vect{x},\vect{y}\rangle=\vect{x}^{\mathsf T}\vect{y},
+  \qquad \lVert\vect{x}\rVert_2=\sqrt{\vect{x}^{\mathsf T}\vect{x}}
+\end{equation}
+이다. 내적은 projection과 유사도를 수량화하며 attention score의 핵심 연산이다.
+cosine similarity는 영벡터가 아닌 두 벡터에 대해
+\begin{equation}
+  \cos(\vect{x},\vect{y})=
+  \frac{\vect{x}^{\mathsf T}\vect{y}}
+       {\lVert\vect{x}\rVert_2\lVert\vect{y}\rVert_2}
+\end{equation}
+로 정의되고 크기를 제거한 방향의 일치를 측정한다.
+
+\begin{interpretbox}{기하학적 측정의 범위}
+cosine similarity가 높으면 선택한 내적 아래 두 좌표 벡터의 각도가 작다는 뜻이다.
+그 자체로 두 activation이 같은 의미, 같은 원인, 같은 기능을 갖는다고 증명하지 않는다.
+표현 공간의 내적 선택도 의미론과 무관한 자동 선택은 아니다
+\citep{park2024linear}.
+\end{interpretbox}
+
+두 벡터가 직교한다는 것은 내적이 0이라는 뜻이지 확률적 독립이나 causal independence를
+뜻하지 않는다. 반대로 고차원에서 여러 방향이 거의 직교할 수 있다는 사실은 feature를
+dimension보다 많이 배치할 수 있는 superposition 직관의 일부지만, 실제 LLM이 특정
+방식으로 superposition을 사용한다는 결론은 실험이 필요하다.
+
+\section{고윳값, SVD와 저차원 구조}
+
+정사각행렬 $\mat{A}$의 고유벡터 $\vect{v}\neq\vect{0}$와 고윳값 $\lambda$는
+$\mat{A}\vect{v}=\lambda\vect{v}$를 만족한다. 이는 $\mat{A}$가 특정 방향을
+회전시키지 않고 scale만 바꾸는 경우를 기술한다. 모든 행렬이 실수 고유기저로
+대각화되는 것은 아니다.
+
+반면 임의의 실수행렬 $\mat{W}\in\R^{m\times d}$에는 singular value decomposition이
+존재한다.
+\begin{equation}
+  \mat{W}=\mat{U}\Sigma\mat{V}^{\mathsf T}.
+\end{equation}
+$\mat{V}$의 right singular vectors는 입력 방향, $\mat{U}$의 left singular vectors는
+대응하는 출력 방향, diagonal의 singular values는 증폭률이다. 상위 $r$개 항만 남긴
+$\mat{W}_r$은 Frobenius norm과 spectral norm에서 최적의 rank-$r$ 근사다.
+
+SVD는 다음 이유로 내부 분석에 직접 쓰인다.
+
+\begin{itemize}
+  \item projection과 weight product의 유효 rank를 확인한다.
+  \item residual activation의 principal directions를 찾는다.
+  \item attention head의 $\mat{W}_{OV}$와 $\mat{W}_{QK}$가 읽고 쓰는 저차원
+        subspace를 요약한다.
+  \item 해석용 저차원 근사가 원 함수를 얼마나 잃는지 singular spectrum으로 측정한다.
+\end{itemize}
+
+\begin{limitbox}
+큰 singular value가 자동으로 의미 있는 feature를 뜻하지 않는다. SVD는 variance나
+operator gain에 관한 최적성을 주지만 인간 개념, sparsity 또는 causal relevance를
+목적으로 최적화하지 않는다.
+\end{limitbox}
+
+\section{확률분포, logits와 softmax}
+
+vocabulary 크기를 $V$라 하면 LM head는 마지막 표현을
+$\vect{z}\in\R^V$로 보낸다. $z_i$는 token $i$의 logit이다. softmax는
+\begin{equation}
+  p_i=\softmax(\vect{z})_i
+  =\frac{\exp(z_i)}{\sum_{j=1}^{V}\exp(z_j)}
+\end{equation}
+로 확률 simplex의 점을 만든다. 모든 logit에 같은 상수 $c$를 더해도 분포는 변하지
+않는다. 수치 구현은 overflow를 피하려고 보통 $m=\max_j z_j$를 빼서
+\begin{equation}
+  p_i=\frac{\exp(z_i-m)}{\sum_j\exp(z_j-m)}
+\end{equation}
+를 계산한다.
+\index{softmax@softmax}
+
+temperature $\tau>0$를 사용하면 $p_i(\tau)=\softmax(\vect{z}/\tau)_i$다.
+$\tau$는 모델의 가중치나 logits 생성 계산을 바꾸지 않고 선택 전 분포를 바꾼다.
+$\tau\to0^+$이면 최대 logit에 질량이 집중되고, 큰 $\tau$에서는 분포가 평평해진다.
+
+정답 token $y$에 대한 cross-entropy 또는 negative log-likelihood는
+\begin{equation}
+  \mathcal{L}(\vect{z},y)=-\log p_y
+  =-z_y+\log\sum_j\exp z_j
+\end{equation}
+이고 logit에 대한 gradient는
+\begin{equation}
+  \frac{\partial\mathcal{L}}{\partial z_i}=p_i-\mathbf{1}[i=y]
+\end{equation}
+이다. 이 식은 정답 logit을 올리고 현재 확률에 비례해 다른 logits를 내리는 학습
+신호를 정확히 보여준다.
+
+\begin{factbox}
+softmax 확률은 모델과 context가 정한 다음-token 조건부분포다. 세계의 명제가 참일
+확률, 모델이 답을 ``안다''는 확률, 또는 calibration이 보장된 신뢰도가 아니다. 이들
+사이의 관계는 별도 데이터와 평가로 검증해야 한다.
+\end{factbox}
+
+\section{미분, 계산 그래프와 역전파}
+
+gradient $\nabla_{\theta}\mathcal{L}$은 각 parameter 좌표의 미소 변화에 대한 loss의
+1차 변화를 모은다. 순전파가 $\vect{y}=f_{\theta}(\vect{x})$를 계산하고 scalar loss
+$\mathcal{L}(\vect{y})$를 만든다고 하자. 합성함수 $f\circ g$의 Jacobian은 chain rule
+\begin{equation}
+  \mat{J}_{f\circ g}(\vect{x})
+  =\mat{J}_f(g(\vect{x}))\mat{J}_g(\vect{x})
+\end{equation}
+을 따른다.
+
+reverse-mode automatic differentiation은 출력 cotangent에서 시작해 계산 그래프를
+역순으로 vector--Jacobian product를 누적한다. scalar loss와 매우 많은 parameter를
+가진 신경망에 적합하다. backpropagation은 이 chain rule을 신경망 그래프에 효율적으로
+적용한 경우이며, numerical differentiation이나 symbolic differentiation와 동일한
+방법이 아니다 \citep{rumelhart1986backprop,baydin2018autodiff}.
+\index{backpropagation@역전파(backpropagation)}
+
+가장 단순한 gradient descent update는
+\begin{equation}
+  \theta_{k+1}=\theta_k-\eta\nabla_{\theta}\mathcal{L}(\theta_k)
+\end{equation}
+이다. 실제 LLM 훈련은 minibatch, momentum, adaptive moments, weight decay,
+learning-rate schedule, mixed precision과 분산 통신을 사용한다. 그러나 이런 optimizer가
+만드는 것은 가중치 update이지 forward-pass 안의 token별 activation update와는 다르다.
+
+\begin{studybox}[구분해야 할 두 시간축]
+\begin{itemize}
+  \item \textbf{훈련 시간}: 여러 batch에 걸쳐 parameter $\theta$가 바뀐다.
+  \item \textbf{추론 시간}: 고정된 $\theta$ 아래 token activation이 layer와 생성 step을 따라 바뀐다.
+\end{itemize}
+in-context learning에서 activation이 predictor 상태처럼 동작할 수 있어도, 일반적인
+추론에서는 optimizer가 model parameter를 업데이트하는 것이 아니다.
+\end{studybox}
+
+\section{embedding, feature, activation, representation}
+
+용어는 다음처럼 고정한다.
+
+\begin{description}[style=nextline]
+  \item[embedding]
+  이 책에서는 우선 token ID를 $d_{\text{model}}$차원 벡터로 보내는 learned lookup을
+  뜻한다. 문맥화된 후속 activation까지 넓게 embedding이라 부르는 문헌도 있으므로
+  인용할 때 정의를 확인한다.
+
+  \item[activation]
+  특정 입력에 대해 계산된 중간 수치다. residual vector, attention pattern, MLP
+  pre-activation과 SAE coefficient가 모두 activation의 예다.
+
+  \item[hidden state]
+  출력으로 직접 관찰되지 않는 중간 상태라는 넓은 이름이다. Transformer에서는 보통
+  특정 layer 경계의 token별 residual vector를 가리키지만 API마다 반환 지점이 다르다.
+
+  \item[representation]
+  어떤 변수나 입력을 나타내는 내부 상태 또는 그 상태를 만드는 scheme이다. ``표현한다''는
+  말은 단순 correlation, decodability, causal use 중 무엇을 뜻하는지 추가해야 한다.
+
+  \item[feature]
+  입력에서 의미 있는 속성으로 간주하는 변수다. 한 neuron, 한 좌표, 한 direction,
+  한 SAE unit과 동일하다고 정의되지 않는다. feature와 activation-space object의
+  alignment는 해석 가설의 일부다.
+\end{description}
+
+\begin{example}
+embedding lookup은 one-hot 입력에 대한 선형변환으로 나타낼 수 있다. token ID $v$의
+one-hot row vector를 $\vect{e}_v^{\mathsf T}$라 하고 embedding matrix를
+$\mat{E}\in\R^{V\times d}$라 하면
+$\vect{x}_v^{\mathsf T}=\vect{e}_v^{\mathsf T}\mat{E}$는 $\mat{E}$의 $v$번째
+row를 선택한다.
+\end{example}
+
+\section{Phase 1 학습 점검}
+
+\begin{studybox}
+다음을 외부 자료 없이 수행할 수 있어야 한다.
+\begin{enumerate}
+  \item $\shape{B,T,d}$ activation에 $\shape{d,m}$ weight를 적용한 결과 shape를 적는다.
+  \item $2\times2$ 행렬의 column space, kernel, rank를 계산한다.
+  \item 두 벡터의 dot product, norm, cosine similarity를 계산하고 각각의 의미를 구분한다.
+  \item 세 logits의 stable softmax와 정답 cross-entropy를 손으로 계산한다.
+  \item affine layer와 softmax-cross-entropy를 잇는 계산 그래프에서 gradient를 유도한다.
+  \item ``probe가 정보를 읽었다''와 ``모델이 정보를 사용했다''가 왜 다른 주장인지 설명한다.
+\end{enumerate}
+\end{studybox}
+
+\begin{limitbox}
+Phase 1을 마쳐도 어떤 hidden direction이 실제 인간 개념에 대응하는지는 알 수 없다.
+알게 되는 것은 후보 표현을 정확한 공간·함수·측정의 언어로 묻는 방법이다.
+\end{limitbox}

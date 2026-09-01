@@ -1,0 +1,102 @@
+\chapter*{증거와 표현의 규칙}
+\addcontentsline{toc}{chapter}{증거와 표현의 규칙}
+
+\begin{factbox}
+``활성값에 정보가 존재한다'', ``모델이 그 정보를 사용한다'', ``특정 구성요소가 그
+정보를 계산한다''는 서로 다른 주장이다. 첫째는 decodability, 둘째는 causal relevance,
+셋째는 mechanism에 관한 주장이다. 한 종류의 증거만으로 나머지를 자동으로 결론낼 수
+없다.
+\end{factbox}
+
+\section*{네 가지 서술 등급}
+
+본문의 색상 상자는 주장 종류를 표시한다.
+
+\begin{description}[style=nextline,leftmargin=2em]
+  \item[수학적 사실 또는 명시된 구현]
+  정의에서 유도되는 등식, 증명된 명제, 또는 특정 공개 코드가 실제로 수행하는 연산이다.
+  구현에 관한 문장은 모델·버전·코드 경로를 제한한다.
+
+  \item[실험 결과]
+  인용한 연구가 정한 모델, 데이터, metric과 intervention 아래에서 관찰한 결과다.
+  표본 밖의 모델이나 과제로 일반화하지 않는다.
+
+  \item[제한된 해석]
+  관찰을 압축하는 유용한 모델이나 연구자들의 해석이지만 유일한 설명으로 증명되지
+  않은 내용이다. ``attention은 정보를 가져온다'', ``MLP는 memory다'' 같은 표현은
+  이 등급에서만 사용한다.
+
+  \item[한계 또는 열린 문제]
+  현재 방법으로 식별되지 않거나 논문 간 결론이 충돌하는 부분이다. 빈칸을 그럴듯한
+  이야기로 채우지 않는다.
+\end{description}
+
+\section*{설명의 다섯 수준}
+
+\begin{table}[htbp]
+\centering
+\caption{LLM을 설명한다는 말의 서로 다른 수준}
+\label{tab:levels-of-explanation}
+\begin{tabularx}{\textwidth}{@{}p{0.17\textwidth}YY@{}}
+\toprule
+수준 & 질문 & 검증 기준 \\
+\midrule
+구현 & 어떤 연산을 실행하는가? & 코드와 텐서 값을 재현한다. \\
+수학 & 입력에서 출력까지 함수는 무엇인가? & 수식의 차원과 등식이 맞는다. \\
+표현 & 어떤 변수가 내부 상태에서 복원되는가? & held-out data와 적절한 control을 사용한다. \\
+인과 & 어떤 구성요소가 행동에 영향을 주는가? & 명시된 intervention과 metric으로 효과를 재현한다. \\
+알고리즘 & 구성요소가 어떤 절차로 협력하는가? & 회로가 행동을 충실히 재현하고 반사실적 예측을 맞힌다. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+완전한 설명은 최소한 이 수준들을 연결해야 한다. 그러나 세부 수치 계산을 그대로
+나열하면 완전하지만 이해하기 어렵고, 짧은 의사코드는 이해하기 쉽지만 실제 계산을
+놓칠 수 있다. 따라서 ``완전성''과 ``압축성''은 별개의 평가축이다.
+
+\section*{경험적 주장에 필요한 여섯 항목}
+
+경험적 주장은 가능한 경우 다음 여섯 정보를 같은 문단이나 인접 표에 기록한다.
+
+\begin{enumerate}
+  \item 모델 이름, 크기, checkpoint와 architecture;
+  \item 입력 분포와 표본 선택 규칙;
+  \item 설명하려는 behavior와 평가 metric;
+  \item 관찰하거나 개입한 activation, edge, weight 또는 feature;
+  \item clean, corrupted, patched 조건의 정확한 차이;
+  \item 결론이 적용되는 범위와 알려진 대안 설명.
+\end{enumerate}
+
+특히 ``중요하다''는 말은 metric을 생략하면 불완전하다. 정답 logit, logit difference,
+probability, KL divergence, cross-entropy, accuracy는 서로 다른 양이며 intervention의
+순위도 바꿀 수 있다 \citep{zhang2024activation,miller2024faithfulness}.
+
+\section*{이 책에서 금지하는 추론}
+
+\begin{itemize}
+  \item attention weight가 크다는 사실만으로 그 source token이 출력의 원인이라고 쓰지 않는다.
+  \item linear probe가 성공했다는 사실만으로 원 모델이 그 방향을 사용한다고 쓰지 않는다.
+  \item 한 위치를 편집할 수 있다는 사실만으로 지식이 오직 그곳에 저장됐다고 쓰지 않는다.
+  \item ablation 효과가 작다는 사실만으로 구성요소가 불필요하다고 쓰지 않는다. downstream
+        self-repair가 효과를 보상할 수 있다.
+  \item 생성된 chain-of-thought를 내부 계산의 충실한 transcript라고 가정하지 않는다.
+  \item 소형·합성 과제의 회로를 자연어 전반의 보편 알고리즘이라고 쓰지 않는다.
+\end{itemize}
+
+이 주의들은 단순한 철학적 경고가 아니다. probing control
+\citep{hewitt2019probes}, attention 설명 논쟁 \citep{jain2019attention,wiegreffe2019attention},
+activation patching의 방법 민감도 \citep{zhang2024activation}, self-repair
+\citep{mcgrath2023hydra}, localization과 editing의 불일치 \citep{hase2023localization},
+CoT 비충실성 \citep{turpin2023unfaithful}에서 각각 실험적으로 문제가 드러났다.
+
+\section*{출처 정책}
+
+핵심 주장은 원 논문, 공식 모델 보고서, 공개 구현 또는 표준 교재를 우선한다. survey는
+문헌 지도를 찾는 데 사용할 수 있지만 원 결과의 대체 인용으로 쓰지 않는다. 기업
+연구팀이 자기 모델을 분석한 기술 보고서는 primary evidence이지만 독립 재현이 아니라는
+점을 유지한다. arXiv preprint는 동료심사가 완료된 논문과 동일하게 표시하지 않는다.
+
+\begin{limitbox}
+어떤 문헌 정책도 오류 가능성을 0으로 만들지는 않는다. 정확성은 출처의 권위만으로
+보장되지 않으며, 수식 검산, 코드 대조, 재현, 반대 결과 확인과 판본 갱신이 필요하다.
+\end{limitbox}

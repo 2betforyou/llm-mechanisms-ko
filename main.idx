@@ -1,0 +1,37 @@
+\indexentry{hidden state@은닉 상태(hidden state)|hyperpage}{2}
+\indexentry{residual stream@잔차 스트림(residual stream)|hyperpage}{2}
+\indexentry{basis@기저(basis)|hyperpage}{2}
+\indexentry{softmax@softmax|hyperpage}{5}
+\indexentry{backpropagation@역전파(backpropagation)|hyperpage}{5}
+\indexentry{autoregressive generation@자기회귀 생성(autoregressive generation)|hyperpage}{9}
+\indexentry{causal attention@인과적 어텐션(causal attention)|hyperpage}{11}
+\indexentry{QKV@query--key--value (QKV)|hyperpage}{11}
+\indexentry{MLP@MLP|hyperpage}{12}
+\indexentry{RMSNorm@RMSNorm|hyperpage}{17}
+\indexentry{RoPE@RoPE|hyperpage}{17}
+\indexentry{SwiGLU@SwiGLU|hyperpage}{18}
+\indexentry{GQA@그룹 질의 어텐션(GQA)|hyperpage}{18}
+\indexentry{tokenizer@토크나이저(tokenizer)|hyperpage}{19}
+\indexentry{KV cache@KV 캐시|hyperpage}{19}
+\indexentry{prefill@prefill과 decode|hyperpage}{19}
+\indexentry{FlashAttention@FlashAttention|hyperpage}{20}
+\indexentry{probe@선형 probe|hyperpage}{25}
+\indexentry{logit lens@logit lens|hyperpage}{26}
+\indexentry{superposition@중첩(superposition)|hyperpage}{26}
+\indexentry{sparse autoencoder@희소 오토인코더(SAE)|hyperpage}{27}
+\indexentry{circuit@회로(circuit)|hyperpage}{30}
+\indexentry{QK circuit@QK 회로|hyperpage}{32}
+\indexentry{OV circuit@OV 회로|hyperpage}{32}
+\indexentry{induction head@induction head|hyperpage}{32}
+\indexentry{IOI@간접 목적어 식별(IOI)|hyperpage}{33}
+\indexentry{Tracr@Tracr|hyperpage}{34}
+\indexentry{ablation@절제(ablation)|hyperpage}{38}
+\indexentry{activation patching@활성값 패칭(activation patching)|hyperpage}{38}
+\indexentry{path patching@경로 패칭(path patching)|hyperpage}{39}
+\indexentry{causal abstraction@인과 추상화(causal abstraction)|hyperpage}{39}
+\indexentry{faithfulness@충실성(faithfulness)|hyperpage}{40}
+\indexentry{self-repair@자기 복구(self-repair)|hyperpage}{41}
+\indexentry{factual recall@사실 회상(factual recall)|hyperpage}{44}
+\indexentry{hallucination@환각(hallucination)|hyperpage}{46}
+\indexentry{chain-of-thought@사고 연쇄(chain-of-thought)|hyperpage}{47}
+\indexentry{attribution graph@기여도 그래프(attribution graph)|hyperpage}{48}

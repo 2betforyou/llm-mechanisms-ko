@@ -1,0 +1,83 @@
+\chapter*{Phase 1--7 학습 지도}
+\addcontentsline{toc}{chapter}{Phase 1--7 학습 지도}
+
+\begin{factbox}
+학습 순서는 ``텐서를 계산할 수 있음''에서 ``내부 알고리즘 가설을 인과적으로 시험할
+수 있음''으로 진행한다. 뒤 Phase의 용어를 먼저 외우는 대신, 앞 Phase의 산출물을
+다음 Phase의 측정 도구로 사용한다.
+\end{factbox}
+
+\begin{longtable}{@{}p{0.10\textwidth}p{0.32\textwidth}p{0.48\textwidth}@{}}
+\caption{각 Phase의 핵심 질문과 통과 기준}\label{tab:phase-roadmap}\\
+\toprule
+Phase & 핵심 질문 & 통과 기준 \\
+\midrule
+\endfirsthead
+\toprule
+Phase & 핵심 질문 & 통과 기준 \\
+\midrule
+\endhead
+1 & 벡터와 activation은 무엇인가? & affine map, dot product, norm, softmax,
+embedding을 좌표와 기저의 언어로 설명하고 작은 예를 손으로 계산한다. \\
+2 & 한 번의 순전파에서 무슨 일이 생기는가? & embedding부터 logits까지 모든
+텐서의 shape와 index를 적고 attention 한 행과 MLP update를 직접 계산한다. \\
+3 & 현대 LLM은 2017 Transformer와 무엇이 다른가? & causal decoder의
+RMSNorm, RoPE, SwiGLU, GQA, KV cache와 prefill/decode를 구현 수준에서 설명한다. \\
+4 & hidden state에서 무엇을 읽을 수 있는가? & probe, lens, geometry와 SAE가
+측정하는 양을 구분하고 decodability와 causal use를 혼동하지 않는다. \\
+5 & 구성요소는 어떻게 회로를 이루는가? & residual stream, QK/OV, head
+composition, MLP feature를 이용해 induction 또는 IOI 회로의 경로를 추적한다. \\
+6 & 회로 가설을 어떻게 반증하는가? & ablation, activation/path patching,
+interchange intervention의 estimand와 통제 조건을 명시한다. \\
+7 & 실제 행동의 메커니즘을 어디까지 아는가? & factual recall, ICL, reasoning,
+refusal, hallucination 연구의 증거와 적용 범위를 비교하고 미해결 부분을 분리한다. \\
+\bottomrule
+\end{longtable}
+
+\section*{두 개의 누적 프로젝트}
+
+\subsection*{프로젝트 A: 순전파를 직접 소유하기}
+
+Phase 1--3 동안 외부 Transformer 모듈을 호출하지 않는 최소 causal LM을 구현한다.
+최종 코드는 적어도 다음 객체를 포함해야 한다.
+
+\begin{lstlisting}[language=Python]
+class RMSNorm
+class RotaryEmbedding
+class CausalSelfAttention
+class SwiGLU
+class TransformerBlock
+class CausalLM
+\end{lstlisting}
+
+프로젝트 A의 통과 기준은 각 원소가 왜 그 값을 갖는지 설명할 수 있는가이다. 이를
+검증하려면 각 연산에서 batch, sequence, head, feature 축을 출력하고, 작은 입력에서는
+수작업 계산과 일치하는 unit test를 작성해야 한다.
+
+\subsection*{프로젝트 B: 회로 가설을 시험하기}
+
+프로젝트 B는 Phase 4--7 동안 공개된 소형 pretrained 모델에서 다음 검증 순서를 반복한다.
+
+\begin{enumerate}
+  \item 관찰할 behavior와 clean/corrupted prompt 분포를 고정한다.
+  \item logits와 activation을 기록하고 descriptive hypothesis를 세운다.
+  \item probe나 attribution으로 후보를 좁힌다.
+  \item activation 또는 path intervention으로 causal effect를 측정한다.
+  \item 발견한 회로의 faithfulness, completeness, minimality와 범위 밖 입력을 시험한다.
+  \item 실패 사례에 따라 가설을 수정한다.
+\end{enumerate}
+
+\section*{권장 산출물}
+
+각 Phase를 마칠 때 다음 네 파일을 남긴다.
+
+\begin{itemize}
+  \item 한 페이지의 정의와 수식 요약;
+  \item 직접 유도한 계산 노트;
+  \item seed와 환경을 기록한 최소 재현 코드;
+  \item 이해한 내용, 반례, 열린 질문을 분리한 연구 기록.
+\end{itemize}
+
+이 책은 정답 모음이 아니라 이러한 산출물을 만들기 위한 기준 문서다. 최종 목표는
+논문의 용어를 알아보는 것이 아니라, 논문의 intervention이 실제로 어느 tensor를
+어떻게 바꾸며 그 결과가 어떤 인과 주장을 지지하는지 독립적으로 판단하는 것이다.

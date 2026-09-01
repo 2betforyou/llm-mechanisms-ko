@@ -1,0 +1,279 @@
+\chapter{잔차 스트림, 회로와 내부 알고리즘}
+\label{chap:phase5}
+
+\section{결론부터: 회로는 행동에 상대적인 계산 부분그래프다}
+
+회로는 명시된 입력 분포와 행동 metric에 대해 모델의 계산을 충분히 재현하거나 설명한다고
+가정한 구성요소와 연결의 부분그래프다. Transformer 전체도 하나의 계산그래프지만, 모든
+edge를 회로라고 부르면 설명 단위가 너무 커진다. 따라서 ``모델의 회로''라는 표현보다 다음
+tuple이 정확하다.
+\index{circuit@회로(circuit)}
+\begin{equation}
+  \mathcal{C}=(\text{model},\text{input distribution},
+  \text{behavior},\text{nodes},\text{edges},\text{intervention rule}).
+\end{equation}
+
+같은 모델도 이름 복사, 사실 회상과 거절에는 다른 회로 가설을 가질 수 있다. 같은 행동도
+prompt 형식이나 metric이 바뀌면 중요한 경로가 달라질 수 있다. 회로가 발견되었다는 말은
+이 tuple의 범위에서 평가해야 한다.
+
+\begin{limitbox}
+``회로''에는 분야 전체가 합의한 유일한 원자 단위가 없다. node를 attention head, MLP
+block, neuron, SAE feature 또는 token-position별 activation으로 잡을 수 있다. 서로 다른
+분해의 회로 크기와 완전성을 그대로 비교해서는 안 된다.
+\end{limitbox}
+
+\section{residual stream을 통신 채널로 보기}
+
+pre-norm Transformer에서 각 sublayer는 residual stream의 정규화된 사본을 읽고
+$d$차원의 update를 다시 쓴다. 단순화하면 마지막 residual state는
+\begin{equation}
+  \vect{x}^{(L)}_t=\vect{x}^{(0)}_t+
+  \sum_{\ell=0}^{L-1}\Delta\vect{x}^{(\ell)}_{\mathrm{attn},t}+
+  \sum_{\ell=0}^{L-1}\Delta\vect{x}^{(\ell)}_{\mathrm{mlp},t}
+  \label{eq:residual-sum}
+\end{equation}
+로 정확히 쓸 수 있다. 각 update의 값은 앞선 모든 update를 normalization과 비선형
+연산으로 읽은 결과이므로 서로 독립적인 항은 아니다.
+
+Elhage 등은 이 구조를 여러 구성요소가 공용 residual stream을 통해 읽고 쓰는 통신
+채널로 해석하고, attention-only 소형 모델에서 경로 전개와 QK/OV 분해를 체계화했다
+\citep{elhage2021framework}. 이 관점은 architecture의 덧셈 구조와 잘 맞지만, residual
+vector의 의미가 자연스럽게 분리된 slot으로 보장된다는 뜻은 아니다. 서로 다른 update가
+같은 subspace를 사용하거나 상쇄할 수 있다.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  node distance=7mm and 5mm,
+  box/.style={draw=Navy,rounded corners,fill=SoftBlue,minimum width=22mm,
+              text width=22mm,minimum height=8mm,align=center,font=\small},
+  arr/.style={-{Latex[length=2mm]},thick,Navy}
+]
+  \node[box] (r0) {residual\\$\vect{x}^{(\ell)}$};
+  \node[box,right=of r0] (a) {attention\\update};
+  \node[box,right=of a] (r1) {residual\\$\vect{u}^{(\ell)}$};
+  \node[box,right=of r1] (m) {MLP\\update};
+  \node[box,right=of m] (r2) {residual\\$\vect{x}^{(\ell+1)}$};
+  \draw[arr] (r0) -- (a);
+  \draw[arr] (a) -- node[above,font=\scriptsize] {$+$} (r1);
+  \draw[arr] (r1) -- (m);
+  \draw[arr] (m) -- node[above,font=\scriptsize] {$+$} (r2);
+  \draw[arr] (r0.south) to[out=-45,in=-135] node[below,font=\scriptsize] {identity path} (r1.south);
+  \draw[arr] (r1.south) to[out=-45,in=-135] node[below,font=\scriptsize] {identity path} (r2.south);
+\end{tikzpicture}
+\caption{한 block에서 residual stream을 읽고 update를 더하는 경로}
+\label{fig:residual-communication}
+\end{figure}
+
+\section{direct logit attribution과 경로 전개}
+
+DLA는 final normalization을 선형화하거나 생략한 조건에서 residual update와
+unembedding의 내적으로 직접 기여를 배정한다. 이 조건에서 token $v$의 logit은
+\begin{equation}
+  z_v=\vect{w}_{U,v}^{\mathsf T}\vect{x}^{(L)}_t+b_v
+\end{equation}
+다. 
+\Cref{eq:residual-sum}을 대입하면 embedding과 각 sublayer update가 주는 직접 내적을
+계산할 수 있다. 이를 direct logit attribution(DLA)이라고 부른다. 비교 대상 token
+$v^+$와 $v^-$의 logit difference를 쓰면 구성요소 $c$의 직접 기여는
+\begin{equation}
+  \operatorname{DLA}_c=
+  (\vect{w}_{U,v^+}-\vect{w}_{U,v^-})^{\mathsf T}\Delta\vect{x}_c
+  \label{eq:dla}
+\end{equation}
+로 둘 수 있다.
+
+DLA는 residual에 최종적으로 쓰인 방향이 unembedding과 얼마나 정렬되는지 측정한다.
+구성요소 $c$가 이후 layer의 query, key 또는 MLP gate를 바꾸는 간접 효과는
+\cref{eq:dla}에 포함되지 않는다. final LayerNorm이나 RMSNorm도 모든 성분을 결합하므로
+정확한 attribution 규칙을 명시해야 한다.
+
+경로 전개는 residual connection을 따라 계산을 합성하여 입력에서 logit까지의 경로를
+열거하는 대수적 관점이다. attention pattern과 normalization scale을 특정 입력에서
+고정하면 attention의 value-output 경로는 선형이므로 matrix product로 합칠 수 있다.
+그러나 MLP activation, attention softmax와 normalization scale은 원래 입력 의존적이다.
+이를 고정한 전개는 해당 입력 주변의 조건부 설명이지 전역 선형 모델이 아니다.
+
+\section{QK 회로와 OV 회로}
+
+QK 회로는 destination 표현과 source 표현 사이의 attention score를 정하는 bilinear
+form이다. column-vector convention으로 정규화된 residual을 $\vect{r}_i$라고 두고
+\begin{equation}
+  \vect{q}_i=\mat{W}_Q^{\mathsf T}\vect{r}_i,\qquad
+  \vect{k}_j=\mat{W}_K^{\mathsf T}\vect{r}_j,\qquad
+  \vect{v}_j=\mat{W}_V^{\mathsf T}\vect{r}_j
+\end{equation}
+라고 하자. score의 핵심 bilinear form은
+\begin{equation}
+  \vect{r}_i^{\mathsf T}
+  \underbrace{\mat{W}_Q\mat{W}_K^{\mathsf T}}_{\text{QK matrix}}
+  \vect{r}_j
+\end{equation}
+다. 이 form은 어떤 destination 표현이 어떤 source 표현을 선택하는지 결정한다.
+
+OV map은 선택된 source의 value가 residual stream에 쓰는 내용을 정한다. 그 update는
+\begin{equation}
+  \Delta\vect{x}_i=\sum_j A_{ij}
+  \underbrace{\mat{W}_O^{\mathsf T}\mat{W}_V^{\mathsf T}}_{\text{OV map}}
+  \vect{r}_j
+\end{equation}
+로 나타낼 수 있다. 정확한 전치 방향은 코드의 row/column convention에 따라 달라지지만,
+선택을 정하는 QK와 전달 내용을 정하는 OV를 분리한다는 요점은 같다
+\citep{elhage2021framework}.
+\index{QK circuit@QK 회로}
+\index{OV circuit@OV 회로}
+
+큰 attention weight는 QK 선택에 관한 관찰이다. OV map이 source 정보를 target logit과
+반대되는 방향으로 쓰거나 거의 0으로 보내면 출력 기여는 작거나 음수일 수 있다. 반대로
+작은 weight도 매우 큰 value-output vector와 결합되면 무시할 수 없을 수 있다.
+
+\section{head composition}
+
+앞 layer의 head가 residual에 쓴 vector는 뒤 head의 query, key와 value projection이
+모두 읽을 수 있다. 이에 따라 세 가지 대표 합성이 생긴다.
+
+\begin{description}[style=nextline,leftmargin=2em]
+  \item[Q-composition]
+  앞 head의 출력이 뒤 head의 query를 바꾸어 destination이 찾는 source를 조절한다.
+
+  \item[K-composition]
+  앞 head의 출력이 뒤 head의 key를 바꾸어 특정 source가 선택될 가능성을 조절한다.
+
+  \item[V-composition]
+  앞 head가 한 position에 쓴 내용을 뒤 head가 value 경로로 다른 position에 운반한다.
+\end{description}
+
+이 분류는 attention-only 모델의 virtual weight를 분석하는 데 유용하다. 실제 깊은 모델에서는
+normalization, MLP update, 여러 head의 합과 softmax가 사이에 있으므로 matrix product의
+크기만으로 인과 효과를 확정할 수 없다. composition score는 후보 경로를 찾는 도구이며
+개입 검증이 뒤따라야 한다.
+
+\section{induction head}
+
+induction head가 구현하는 대표 패턴은
+\begin{equation}
+  [A][B]\;\cdots\;[A]\longrightarrow[B]
+\end{equation}
+다. 앞에서 $A$ 다음에 $B$가 나타났다면, 뒤의 $A$ 위치에서 $B$를 다음 token으로
+복사하는 경향이다. 두 layer attention-only 모델의 이상화된 회로에서는 다음과 같이
+설명할 수 있다.
+\index{induction head@induction head}
+
+\begin{enumerate}
+  \item 앞 layer의 previous-token head가 각 position에 바로 앞 token의 정보를 쓴다.
+  \item 뒤 layer induction head의 query가 현재 token $A$를 나타내고, key가 ``바로 앞
+        token이 $A$였던 source''와 맞는다.
+  \item 그 source의 value에는 $A$ 다음 token인 $B$의 정보가 있으므로 OV 경로가 $B$
+        logit을 높이는 방향으로 이를 복사한다.
+\end{enumerate}
+
+Olsson 등은 소형 attention-only 모델에서 induction head와 in-context loss 개선 사이에
+강한 인과 증거를 제시하고, MLP가 있는 더 큰 모델에서는 여러 상관적 증거를 보고했다
+\citep{olsson2022induction}. 원 논문 자체가 증거 수준을 구분한다. 따라서 ``모든 대형
+LLM의 in-context learning은 induction head 하나로 완전히 설명된다''고 요약하면 원
+결과의 범위를 넘는다.
+
+\begin{resultbox}{Olsson et al. (2022)의 제한된 결과}
+반복 token pattern, training 중 induction-like head의 출현 시점과 in-context learning
+metric을 연결한 결과다. 소형 attention-only 모델에 대한 강한 인과 증거와 더 큰 모델에
+대한 간접 증거를 같은 수준으로 취급하지 않는다.
+\end{resultbox}
+
+\section{IOI 회로}
+
+간접 목적어 식별(IOI)은 ``When Mary and John went to the store, John gave a drink to''와
+같은 문맥에서 반복되지 않은 이름인 Mary를 예측하는 과제다. Wang 등은 GPT-2 small에서
+이 행동을 분석하여 26개 attention head를 7개 주요 기능군으로 묶은 회로를 제시했다.
+연구는 name mover, negative name mover, duplicate-token, previous-token, induction 및
+S-inhibition 기능을 포함하고, causal intervention과 faithfulness, completeness,
+minimality 기준으로 설명을 평가했다 \citep{wang2022ioi}.
+\index{IOI@간접 목적어 식별(IOI)}
+
+이 연구의 중요성은 자연어 행동 하나를 입력에서 logit까지 비교적 세밀한 head-level
+경로로 연결했다는 데 있다. 동시에 다음 범위가 명시되어야 한다.
+
+\begin{itemize}
+  \item 분석 대상은 GPT-2 small과 연구가 구성한 IOI distribution이다.
+  \item node granularity는 주로 attention head이며 MLP와 더 미세한 feature를 완전히
+        의미론적으로 분해하지 않는다.
+  \item 정량 기준이 설명을 지지했지만 저자들은 남은 설명 격차도 보고했다.
+  \item 다른 이름 분포, 문장 구조, 모델과 과제에 동일한 회로가 자동으로 적용되지는 않는다.
+\end{itemize}
+
+따라서 IOI는 ``자연 모델도 부분적으로 reverse engineering할 수 있다''는 강한 사례지만,
+``자연어 모델 전체의 알고리즘을 발견했다''는 사례는 아니다.
+
+\section{MLP feature와 memory 해석}
+
+기본 FFN은 중간 neuron별 activation과 residual 출력 방향의 합으로 전개할 수 있다.
+\begin{equation}
+  \operatorname{FFN}(\vect{x})=
+  \sum_{i=1}^{d_{\mathrm{ff}}}
+  \phi(\vect{k}_i^{\mathsf T}\vect{x}+b_i)\vect{v}_i+\vect{b}_{\mathrm{out}}
+  \label{eq:mlp-sum}
+\end{equation}
+input matrix의 row $\vect{k}_i$는 activation 조건을 정하고, output
+matrix의 대응 column $\vect{v}_i$는 residual에 쓰는 방향을 정한다. 이 대수 때문에 한
+neuron을 key-value pair처럼 분석할 수 있다.
+
+Geva 등은 Transformer FFN의 input pattern과 output vocabulary 분포를 조사하고, lower
+layer에는 상대적으로 얕은 pattern이, upper layer에는 더 semantic한 pattern이 나타나는
+경향을 보고하며 ``key-value memory'' 해석을 제안했다 \citep{geva2021ffn}. 이 결과는
+\cref{eq:mlp-sum}의 분해와 실험 관찰을 결합한 해석이다.
+
+SwiGLU에서는 두 projection의 곱과 SiLU가 있으므로 neuron 하나를
+\cref{eq:mlp-sum}의 단순 key-value pair로 그대로 대응시키기 어렵다. 또한 superposition과
+다의성 때문에 neuron보다 feature dictionary가 더 적합할 수 있지만, SAE 역시 근사
+분해다. ``MLP는 데이터베이스다''는 비유를 literal한 주소-값 저장 구조로 받아들여서는
+안 된다.
+
+\section{완전한 알고리즘을 아는 특수 사례}
+
+Tracr는 제한된 배열 처리 언어로 쓴 human-readable program을 표준 decoder-only
+Transformer weight로 컴파일한다. token 빈도 계산, 정렬과 괄호 검사 같은 program을
+구성하며, compiler가 weight를 만들었기 때문에 source program과 모델 구조의 대응을
+ground truth로 사용할 수 있다 \citep{lindner2023tracr}.
+\index{Tracr@Tracr}
+
+Tracr 모델에서는 ``어떤 알고리즘을 구현하는가''를 설계 과정에서 안다. 그러나 자연어
+corpus의 gradient descent로 학습한 모델에 Tracr의 알려진 program이 그대로 존재한다는 뜻은
+아니다. Tracr의 가치는 다음 두 가지다.
+
+\begin{enumerate}
+  \item 해석 방법이 알려진 component와 edge를 복원하는지 평가할 수 있다.
+  \item 알고리즘을 Transformer 연산으로 구현하는 구체적 construction을 연구할 수 있다.
+\end{enumerate}
+
+또 다른 완전성은 모든 floating-point 연산을 기록하는 것이다. 이는 실행 trace로서는
+완전하지만, billions of scalar operations를 그대로 나열하므로 사람이 이해하는 압축된
+알고리즘 설명과 다르다. 자연 학습 LLM에서 요구하는 어려운 목표는 실행 trace와 행동
+사이의 충실하고 압축된 중간 설명을 찾는 일이다.
+
+\begin{factbox}
+알려진 program을 컴파일한 Transformer에는 완전한 설계 설명이 존재한다. 학습된 소형
+모델에는 특정 과제의 상당한 회로 설명이 존재한다. 자연 학습한 frontier-scale LLM
+전체에는 아직 이에 상응하는 전역적이고 완전한 설명이 없다.
+\end{factbox}
+
+\section{Phase 5 학습 점검}
+
+\begin{studybox}
+\begin{enumerate}
+  \item attention-only 2-layer 모델에서 embedding에서 unembedding까지 가능한 residual
+        path를 전개한다.
+  \item attention head 하나의 QK bilinear form과 OV map을 계산하고, attention weight와
+        direct logit contribution을 따로 시각화한다.
+  \item 반복 token dataset으로 previous-token head와 induction head 후보를 찾은 뒤
+        각각을 ablate하여 loss 변화를 측정한다.
+  \item IOI 논문의 node, edge, 입력 분포, logit-difference metric과 개입 기준을 한 장의
+        회로 명세로 다시 작성한다.
+  \item Tracr program 하나를 컴파일하고 알려진 source variable과 residual direction의
+        대응을 blind analysis 결과와 비교한다.
+\end{enumerate}
+\end{studybox}
+
+\begin{limitbox}
+회로 diagram이 그럴듯하다는 사실은 충분하지 않다. 다음 장에서는 node와 edge를 실제로
+바꾸어 회로 가설이 원 모델의 반사실적 행동을 예측하는지 검사한다.
+\end{limitbox}

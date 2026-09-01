@@ -1,0 +1,251 @@
+\chapter{내부 표현을 읽는 방법과 그 한계}
+\label{chap:phase4}
+
+\section{결론부터: 읽을 수 있다는 사실은 사용된다는 뜻이 아니다}
+
+활성값에서 어떤 변수를 예측할 수 있다는 결과는 그 변수에 관한 정보가 활성값에
+존재한다는 증거다. 그러나 원 모델이 같은 판별 경계나 같은 방향을 실제 출력 계산에
+사용한다는 결론은 별도의 인과적 증거가 없으면 성립하지 않는다. 이 장의 핵심 구분은
+다음 세 문장이다.
+
+\begin{enumerate}
+  \item 변수 $y$를 활성값 $\vect{h}$에서 \emph{복원할 수 있다}.
+  \item $y$에 대응한다고 해석한 방향을 바꾸면 모델 행동도 \emph{바뀐다}.
+  \item 원 모델이 자연스러운 입력에서 그 방향을 이용하는 \emph{메커니즘}을 안다.
+\end{enumerate}
+
+첫 문장은 관찰적이고, 둘째 문장은 개입적이며, 셋째 문장은 구성요소와 경로를 포함한
+설명이다. 앞 문장이 참이라고 해서 다음 문장이 자동으로 참이 되지는 않는다.
+
+\section{분산 표현과 특징 방향}
+
+분산 표현은 의미 변수가 좌표 하나가 아니라 여러 좌표의 결합과 관계를 맺을 수 있다는
+관점이다. layer $\ell$, position $t$의 residual state를
+$\vect{h}^{(\ell)}_t\in\R^d$라고 할 때, ``개체'', ``시제'', ``진실성'' 같은 변수가 좌표
+한 개에만 저장되어야 할 이유는 없다. 한 좌표도 여러 입력 조건에서 서로 다른 변수와
+상관될 수 있다.
+
+선형 readout은
+\begin{equation}
+  s(\vect{h})=\vect{w}^{\mathsf T}\vect{h}+b
+  \label{eq:linear-readout}
+\end{equation}
+로 score를 만든다. binary classification에서는 $s>0$인지로 class를 나눌 수 있다.
+$\vect{w}$를 feature direction이라고 부를 때는 다음 차이를 유지해야 한다.
+
+\begin{itemize}
+  \item 좌표 또는 neuron은 선택한 basis의 축 하나다.
+  \item 방향은 여러 좌표의 선형결합일 수 있다.
+  \item subspace는 한 개 이상의 독립 방향이 만드는 부분공간이다.
+  \item feature는 연구자가 정한 의미 변수 또는 학습된 dictionary element를 가리킬 수
+        있으므로, 논문마다 조작적 정의를 확인해야 한다.
+\end{itemize}
+
+개별 neuron의 의미 해석은 모델이 사용하는 basis에 의존한다. invertible matrix
+$\mat{A}$로 좌표를 $\vect{h}'=\mat{A}\vect{h}$로 바꾸고 다음 layer의 weight를 그에 맞게
+보정하면 같은 함수를 표현할 수 있지만 개별 좌표의 값은 달라진다. 따라서 ``neuron
+1723이 개념 그 자체다''라는 주장은 basis와 입력 분포를 명시하지 않으면
+강한 주장이다. 반면 특정 모델의 고정된 basis에서 그 neuron의 활성 조건을 기술하는 것은
+검증 가능한 경험적 주장이다.
+
+\begin{interpretbox}{분산 표현의 최소 의미}
+분산 표현은 모든 정보가 모든 좌표에 균등하게 흩어져 있다는 뜻이 아니다. 어떤 변수는
+소수의 방향이나 neuron에서 더 쉽게 복원될 수 있다. 이 용어는 의미 변수와 parameter
+좌표 사이에 필연적인 일대일 대응이 없다는 점을 가리킨다.
+\end{interpretbox}
+
+\section{표현 공간의 기하}
+
+표현 기하 연구는 활성값 사이의 거리, 각도, 군집, 저차원 구조와 변환 관계를 분석한다.
+두 벡터의 cosine similarity는
+\begin{equation}
+  \cos(\vect{x},\vect{y})=
+  \frac{\vect{x}^{\mathsf T}\vect{y}}{\lVert\vect{x}\rVert_2
+  \lVert\vect{y}\rVert_2}
+\end{equation}
+다. 이는 방향의 일치도를 재지만 norm 차이를 버린다. residual norm이 logit이나 다음
+normalization에 영향을 주는 모델에서는 cosine만으로 계산 효과를 판단할 수 없다.
+
+주성분분석은 표본 분산이 큰 방향을 찾지만 그 방향을 인간 개념으로 보장하지 않는다.
+데이터 행렬 $\mat{H}\in\R^{n\times d}$를 평균 중심화하고 SVD를 적용하면 이 방향을
+계산할 수 있다. label에 따라 평균 차이
+\begin{equation}
+  \vect{v}=\E[\vect{h}\mid y=1]-\E[\vect{h}\mid y=0]
+\end{equation}
+를 계산하는 방법도 있다. 이 방향은 표본 분포, layer, position과 prompt 형식에
+의존한다.
+
+일부 연구는 개념이나 관계가 선형 구조로 나타난다는 ``선형 표현 가설''을 이론과
+실험으로 분석한다 \citep{park2024linear}. 이 문헌은 특정 정의와 모델에서 선형 구조를
+지지하는 결과를 제공하지만, 모든 의미 변수가 한 개의 전역 선형 방향으로 표현된다는
+정리를 제공하지 않는다.
+
+\begin{limitbox}
+군집 그림은 차원 축소 방법과 hyperparameter에 민감할 수 있다. t-SNE나 UMAP의 2차원
+배치에서 떨어져 보이는 두 군집이 원래 공간에서도 같은 방식으로 분리된다고 단정해서는
+안 된다. 원 차원의 거리, held-out 분류와 개입 결과를 함께 확인해야 한다.
+\end{limitbox}
+
+\section{선형 probe와 control task}
+
+probe는 고정된 모델의 활성값을 입력으로 받아 label을 예측하도록 별도 모델을 학습하는
+방법이다. 선형 probe의 대표 목적함수는
+\begin{equation}
+  \hat{\vect{w}},\hat b
+  =\argmin_{\vect{w},b}
+  \sum_{i=1}^{n}\operatorname{CE}
+  \bigl(y_i,\sigma(\vect{w}^{\mathsf T}\vect{h}_i+b)\bigr)
+  +\lambda\lVert\vect{w}\rVert_2^2
+\end{equation}
+다. 평가에는 probe를 학습하지 않은 held-out sample을 사용해야 한다.
+\index{probe@선형 probe}
+
+높은 정확도는 다음 대안들 가운데 무엇이 맞는지 혼자 결정하지 못한다.
+
+\begin{itemize}
+  \item 원 모델이 행동을 만들 때 실제로 사용하는 변수가 복원되었다.
+  \item 입력의 표면적 confound가 label과 함께 복원되었다.
+  \item 고차원 표현에서 probe가 우연한 label mapping을 암기했다.
+  \item 해당 정보는 존재하지만 downstream 계산이 무시한다.
+\end{itemize}
+
+Hewitt와 Liang은 언어 구조 probe가 representation의 구조와 probe 자체의 암기 능력을
+혼동할 수 있음을 지적하고, 무작위 control label에 대한 성능과 실제 과제 성능의 차이를
+selectivity로 평가했다 \citep{hewitt2019probes}. 실제 연구에서는 train/test 분리뿐 아니라
+lexical overlap, prompt template, token position, class balance와 probe capacity를
+통제해야 한다.
+
+\begin{studybox}[probe 결과를 기록하는 양식]
+재현 가능한 probe 결과에는 모델부터 결론의 증거 수준까지 전체 분석 명세가 필요하다.
+모델과 checkpoint, layer와 hook 위치, 사용한 token position, label의 정의,
+train/validation/test 분리 단위, probe class와 regularization, baseline, control task,
+metric과 confidence interval을 기록한다. 마지막으로 ``정보 존재''와 ``인과적 사용'' 중
+어디까지 결론낼 수 있는지 한 문장으로 제한한다.
+\end{studybox}
+
+\section{logit lens와 tuned lens}
+
+logit lens는 중간 residual state를 최종 vocabulary 공간으로 투영하여 각 layer에서 어떤
+token이 선호되는지 관찰한다. 가장 단순한 형태는
+\begin{equation}
+  \vect{z}^{(\ell)}_t=
+  \mat{W}_U\operatorname{Norm}_f(\vect{h}^{(\ell)}_t)+\vect{b}_U
+  \label{eq:logit-lens}
+\end{equation}
+다. 최종 layer에 맞춰 학습된 normalization과 unembedding을 중간 layer에 적용하는
+진단 도구다. 원 모델이 실제로 중간마다 LM head를 실행한다는 뜻은 아니다.
+\index{logit lens@logit lens}
+
+중간 residual distribution은 최종 residual distribution과 다를 수 있다. tuned lens는
+layer별 affine translator $\mat{A}_{\ell},\vect{c}_{\ell}$를 학습하여
+\begin{equation}
+  \vect{z}^{(\ell)}_t=
+  \mat{W}_U\operatorname{Norm}_f
+  (\mat{A}_{\ell}\vect{h}^{(\ell)}_t+\vect{c}_{\ell})+\vect{b}_U
+\end{equation}
+로 예측을 읽는다 \citep{belrose2023tunedlens}. 이는 중간 예측을 더 잘 맞추기 위한 별도
+모델이며, translator의 계산이 원 Transformer 안에 존재한다는 증거는 아니다.
+
+logit lens에서 정답 token의 rank가 layer에 따라 오르는 현상은 유용한 관찰이다. 그러나
+그 token이 실제 생성에 필요했던 경로를 확인하려면 activation patching이나 path-level
+개입 같은 추가 실험이 필요하다.
+
+\section{중첩과 다의적 neuron}
+
+중첩(superposition)은 서로 직교하지 않는 여러 feature 방향을 같은 표현 공간에 배치하는
+가설이다. 차원 $d$보다 많은 잠재 feature를 표현해야 하고 feature가 희소하게 나타날 때
+이런 배치가 가능하다. toy model 연구는 sparsity와 feature importance가 달라질
+때 비직교 feature 표현과 다의적 neuron이 나타나는 조건을 구성적으로 보였다
+\citep{elhage2022superposition}.
+\index{superposition@중첩(superposition)}
+
+toy model에서 중첩을 구성한 결과와 자연 LLM에서 중첩을 식별한 결과는 서로 다른
+명제다.
+
+\begin{enumerate}
+  \item 설계된 toy model에서 최적화가 중첩 해를 만든다.
+  \item 자연어로 학습한 대형 LLM의 특정 activation이 같은 이유로 다의적이다.
+\end{enumerate}
+
+첫째는 통제된 모델에서 직접 조사할 수 있다. 둘째는 자연 모델의 feature 정의와 측정법을
+추가로 요구한다. 한 neuron이 서로 무관해 보이는 여러 문맥에서 활성화된다는 관찰은
+다의성의 증거가 될 수 있지만, 그 원인이 오직 중첩이라고 유일하게 식별하지는 못한다.
+
+\section{희소 오토인코더}
+
+희소 오토인코더(SAE)는 activation $\vect{x}\in\R^d$를 더 큰 feature 공간의 희소한
+code $\vect{f}\in\R^m$으로 바꾸고 다시 복원한다. 단순한 한 형태는
+\begin{align}
+  \vect{f}&=\operatorname{ReLU}
+  \bigl(\mat{W}_{\mathrm{enc}}(\vect{x}-\vect{b}_{\mathrm{dec}})
+  +\vect{b}_{\mathrm{enc}}\bigr),\\
+  \hat{\vect{x}}&=\mat{W}_{\mathrm{dec}}\vect{f}+\vect{b}_{\mathrm{dec}},\\
+  \mathcal{L}_{\mathrm{SAE}}&=\lVert\vect{x}-\hat{\vect{x}}\rVert_2^2
+  +\lambda\lVert\vect{f}\rVert_1
+  \label{eq:sae}
+\end{align}
+로 쓸 수 있다. $m>d$인 overcomplete dictionary를 사용할 수 있다. decoder의 column은
+activation 공간에 쓰는 방향이고, code coordinate는 해당 방향의 활성 세기다.
+\index{sparse autoencoder@희소 오토인코더(SAE)}
+
+희소 dictionary가 사람이 해석하기 쉬운 feature를 줄 수 있다는 대규모 사례 연구가
+보고되었다 \citep{bricken2023monosemantic,templeton2024scaling}. 그러나 reconstruction
+loss와 sparsity penalty는 의미론적 유일성을 직접 최적화하지 않는다. dictionary는
+random seed, 데이터, sparsity 강도와 architecture에 따라 달라질 수 있으며, reconstruction
+error가 원 모델 계산의 일부를 잃는다.
+
+SAEBench는 여러 SAE architecture를 여덟 종류의 metric으로 비교했고, 일반적인 proxy
+metric의 향상이 feature disentanglement나 practical downstream 성능의 향상으로 안정적으로
+이어지지 않는 결과를 보고했다 \citep{karvonen2025saebench}. 따라서 낮은 reconstruction
+error 또는 높은 sparsity 하나만으로 ``해석가능성이 좋아졌다''고 결론내리면 안 된다.
+
+\begin{limitbox}
+SAE feature에 자연어 이름을 붙이는 일은 가설 생성이다. feature가 활성되는 positive와
+negative example, 유사 feature, activation distribution, decoder 방향 개입, downstream
+효과와 reconstruction error 경로를 함께 조사해야 한다. 자동 설명 모델의 문장이 그
+feature의 완전한 정의가 되는 것은 아니다.
+\end{limitbox}
+
+\section{표현 분석의 최소 증거 기준}
+
+\begin{table}[htbp]
+\centering
+\caption{표현에 관한 주장과 필요한 추가 증거}
+\label{tab:representation-evidence}
+\begin{tabularx}{\textwidth}{@{}p{0.19\textwidth}YY@{}}
+\toprule
+주장 & 최소 관찰 & 아직 남는 질문 \\
+\midrule
+상관이 있다 & 독립 표본에서 activation과 label의 관계가 재현된다. & confound인가? \\
+선형 복원이 된다 & held-out probe가 적절한 baseline과 control을 넘는다. & 원 모델이 사용하는가? \\
+방향이 행동을 제어한다 & 크기와 부작용을 기록한 intervention이 행동을 바꾼다. & 자연 입력에서 같은 경로를 쓰는가? \\
+구성요소가 필요하다 & 적절한 ablation에서 target metric이 나빠진다. & 중복 경로나 self-repair가 있는가? \\
+메커니즘을 설명한다 & 경로 가설이 여러 반사실 입력과 개입 결과를 예측한다. & 분포와 모델을 넘어 일반화하는가? \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+표현 분석의 산출물은 결론문보다 재현 가능한 object여야 한다. activation을 뽑은 정확한
+hook, tensor shape, 표본 ID, 전처리, probe weight, metric과 seed를 보존해야 다음 장의
+회로 분석과 인과 개입으로 이어갈 수 있다.
+
+\section{Phase 4 학습 점검}
+
+\begin{studybox}
+\begin{enumerate}
+  \item 같은 의미 label에 대해 neuron 하나, mean-difference direction과 regularized
+        linear probe를 비교하고 held-out 성능을 기록한다.
+  \item label을 무작위로 섞은 control task와 lexical split을 추가하여 selectivity를
+        평가한다.
+  \item 각 layer의 logit lens와 tuned lens 분포를 비교하고, 어느 계산이 원 모델 밖에서
+        학습되었는지 표시한다.
+  \item SAE 하나를 학습하여 reconstruction error, 평균 활성 feature 수, dead feature
+        비율과 intervention 결과를 함께 기록한다.
+  \item 모든 그림과 표의 결론을 ``복원'', ``개입'', ``메커니즘'' 가운데 하나로 분류한다.
+\end{enumerate}
+\end{studybox}
+
+\begin{factbox}
+Phase 4의 종료 조건은 activation에 이름을 많이 붙이는 것이 아니다. 무엇이 관찰되었고,
+어떤 대안 설명이 남으며, 다음 인과 실험이 무엇인지를 정확히 말할 수 있어야 한다.
+\end{factbox}

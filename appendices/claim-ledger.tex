@@ -1,0 +1,85 @@
+\chapter{주장--증거 감사표}
+\label{app:claim-ledger}
+
+\section{감사표의 목적}
+
+주장--증거 감사표는 핵심 문장이 인용 범위를 넘어가는 일을 막는다. 각 행은 책의 요약
+주장, 증거 종류, 적용 범위와 결론을 바꿀 수 있는 조건을 함께 기록한다.
+
+\small
+\begin{longtable}{@{}p{0.06\textwidth}p{0.31\textwidth}p{0.20\textwidth}p{0.31\textwidth}@{}}
+\caption{핵심 주장과 증거 범위}\label{tab:claim-ledger}\\
+\toprule
+ID & 핵심 주장 & 근거 & 범위와 갱신 조건 \\
+\midrule
+\endfirsthead
+\toprule
+ID & 핵심 주장 & 근거 & 범위와 갱신 조건 \\
+\midrule
+\endhead
+C01 & 고정된 weight와 실행 조건에서 Transformer 순전파는 입력 token IDs를 logits로 보내는 명시적 함수다. & architecture 수식과 공개 코드 \citep{vaswani2017attention,meta2024llama3code} & sampling 난수와 비결정적 kernel은 별도다. 코드가 바뀌면 구현 주장을 갱신한다. \\
+
+C02 & residual block은 현재 state에 attention과 MLP update를 더한다. & 대수적 architecture 정의 \citep{vaswani2017attention,elhage2021framework} & pre/post-norm과 parallel block은 식이 다르므로 checkpoint별로 제한한다. \\
+
+C03 & attention weight만으로 output의 인과 원인을 식별할 수 없다. & QK/OV 분해와 상반된 설명 실험 \citep{jain2019attention,wiegreffe2019attention} & weight와 value-output effect, intervention을 함께 측정하면 더 강한 주장이 가능하다. \\
+
+C04 & RMSNorm은 평균을 빼지 않고 root-mean-square로 scale을 정규화한다. & 정의와 원 논문 \citep{zhang2019rmsnorm} & $\epsilon$, gain, bias와 적용 위치는 구현별로 확인한다. \\
+
+C05 & RoPE를 적용한 query-key 내적은 상대 offset을 대수적으로 포함한다. & 회전행렬 등식 \citep{su2021roformer} & 훈련 길이 밖의 품질 일반화는 이 등식으로 보장되지 않는다. \\
+
+C06 & GQA는 여러 query head가 더 적은 KV head를 공유하여 KV cache를 줄인다. & architecture와 실험 \citep{ainslie2023gqa} & 품질과 실제 속도는 model, kernel과 hardware에 따라 재평가한다. \\
+
+C07 & FlashAttention은 근사 attention이 아니라 I/O-aware exact attention algorithm으로 제안되었다. & algorithm과 복잡도 분석 \citep{dao2022flashattention} & exact는 실수식 기준이며 bit-wise equality는 연산 순서와 dtype에 의존한다. \\
+
+C08 & linear probe 성공은 정보의 복원 가능성을 보이지만 원 모델의 사용을 자동으로 보이지 않는다. & probe control 분석 \citep{hewitt2019probes} & causal intervention과 path evidence가 추가되면 사용 주장을 강화할 수 있다. \\
+
+C09 & tuned lens는 중간 표현을 읽기 위해 layer별 translator를 학습하는 진단 모델이다. & 방법 정의 \citep{belrose2023tunedlens} & translator는 원 Transformer의 구성요소가 아니다. \\
+
+C10 & toy model은 sparsity 조건에서 중첩과 다의적 neuron이 나타날 수 있음을 구성적으로 보인다. & 통제된 toy-model 실험 \citep{elhage2022superposition} & 자연 LLM의 모든 다의성이 같은 원인이라는 결론은 보류한다. \\
+
+C11 & SAE는 activation을 희소 dictionary로 근사 분해하지만 의미 feature의 유일성을 보장하지 않는다. & SAE 목적함수와 benchmark \citep{bricken2023monosemantic,karvonen2025saebench} & reconstruction, sparsity, disentanglement와 intervention을 함께 평가한다. \\
+
+C12 & induction head는 $[A][B]\cdots[A]\to[B]$ pattern을 구현하는 확인된 회로 motif다. & 소형 모델의 인과 분석과 대형 모델의 간접 증거 \citep{olsson2022induction} & 모든 자연어 ICL의 충분한 설명이라는 주장은 하지 않는다. \\
+
+C13 & GPT-2 small의 IOI 행동에는 26개 attention head, 7개 기능군의 회로 설명이 제시되었다. & causal intervention과 회로 평가 \citep{wang2022ioi} & 해당 IOI distribution과 model에 한정하며 저자도 남은 격차를 보고했다. \\
+
+C14 & Tracr-compiled Transformer는 source program이 알려져 있어 ground-truth 해석 평가에 쓸 수 있다. & compiler construction \citep{lindner2023tracr} & 자연 corpus에서 학습된 모델의 알고리즘을 발견한 결과는 아니다. \\
+
+C15 & activation patching 결과는 corruption, metric과 replacement 선택에 민감할 수 있다. & 체계적 비교와 방법 지침 \citep{zhang2024activation,heimersheim2024patching} & 여러 합리적 설정에서 sensitivity analysis를 보고한다. \\
+
+C16 & ablation 뒤 downstream component가 제거 효과를 일부 보상할 수 있다. & 언어모델의 self-repair 실험 \citep{mcgrath2023hydra} & 모델과 component별 효과가 다르므로 모든 작은 ablation effect를 보상으로 해석하지 않는다. \\
+
+C17 & circuit faithfulness score는 ablation 방법에 강하게 의존할 수 있다. & 여러 방법의 robustness 비교 \citep{miller2024faithfulness} & baseline과 circuit-size curve를 함께 보고하며 단일 score를 절대값으로 취급하지 않는다. \\
+
+C18 & Geva 등의 factual recall 설명은 subject enrichment, relation propagation과 upper-MHSA attribute extraction의 세 단계다. & GPT-2 XL과 GPT-J의 약 1,200개 정답 query 분석 \citep{geva2023recall} & 원 연구의 model, correct-prediction filter와 first-token 과제에 한정한다. \\
+
+C19 & 2510.09033에서는 AH가 FA와 유사하고 UH가 더 쉽게 분리되는 내부 pattern이 보고되었다. & Llama-3-8B와 Mistral-7B-v0.3의 intervention과 probe \citep{cheang2026knowledge} & AH/UH는 subject-reliance JS threshold로 만든 조작적 label이며 다른 hallucination taxonomy로 자동 일반화하지 않는다. \\
+
+C20 & attribution graph는 대형 모델의 선택된 prompt에서 해석 가능한 중간 경로를 부분적으로 드러낼 수 있다. & CLT replacement model, graph와 perturbation \citep{ameisen2025circuittracing,lindsey2025biology} & replacement error, frozen nonlinearity, pruning과 성공 사례 편향 때문에 완전한 원 모델 graph가 아니다. \\
+
+C21 & factual recall mechanism은 autoregressive Transformer architecture 사이에서 다를 수 있다. & GPT, Llama, Qwen과 DeepSeek 계열 비교 \citep{choe2025crossarchitecture} & 한 비교 연구의 model set과 방법에 한정하며 독립 재현으로 갱신한다. \\
+
+C22 & 자연 학습 frontier LLM 전체의 완전하고 충실하며 압축된 알고리즘 설명은 아직 없다. & 현재 방법 논문의 명시적 한계와 case-study 범위 \citep{ameisen2025circuittracing,lindsey2025biology} & 전역 coverage와 intervention faithfulness를 입증한 새 연구가 나오면 즉시 갱신한다. \\
+
+C23 & 같은 행동을 만족하는 기계론적 설명은 유일하지 않을 수 있다. & Boolean function과 소형 MLP의 완전 열거 사례 \citep{meloux2025identifiable} & 자연 LLM의 모든 설명이 비식별이라는 정리는 아니며, uniqueness 조건 연구에 따라 갱신한다. \\
+
+C24 & CoT는 내부 계산의 충실한 transcript로 가정할 수 없다. & biasing feature와 explanation의 불일치 실험 \citep{turpin2023unfaithful} & model과 과제별 faithfulness를 별도로 평가하며 모든 CoT가 비충실하다고 일반화하지 않는다. \\
+\bottomrule
+\end{longtable}
+\normalsize
+
+\section{갱신 절차}
+
+새 근거는 기존 행을 삭제하기보다 version history와 함께 갱신한다. 결과가 재현되지 않으면
+모델·데이터·구현 차이인지 원 결론의 불안정성인지 구분하고, 범위 열을 먼저 좁힌다.
+
+주장의 등급은 근거가 강해질 때만 올린다. probe에서 intervention으로, 단일 prompt에서
+held-out distribution으로, 단일 model에서 architecture transfer로 증거가 확장되면 해당
+범위를 명시한다. 반대 결과가 나오면 평균적인 결론 속에 숨기지 않고 별도 행이나 예외로
+기록한다.
+
+\begin{studybox}
+책의 새 판을 만들기 전에는 본문의 모든 \verb|\citep|와 \verb|\citet|가 감사표 또는
+비핵심 배경 주장으로 분류되는지 검사한다. C22처럼 부재를 주장하는 문장은 최신 문헌 검색과
+주요 방법 논문의 limitation을 다시 확인한 뒤 날짜를 갱신한다.
+\end{studybox}

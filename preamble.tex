@@ -1,0 +1,170 @@
+\usepackage[a4paper,inner=30mm,outer=25mm,top=27mm,bottom=29mm,headsep=8mm]{geometry}
+\usepackage{fontspec}
+\usepackage{luatexko}
+\setmainfont{TeX Gyre Pagella}
+\setsansfont{TeX Gyre Heros}
+\setmonofont{Menlo}[Scale=MatchLowercase]
+\setmainhangulfont{UnBatang.ttf}[
+  BoldFont=UnBatangBold.ttf,
+  ItalicFont=UnBatang.ttf,
+  BoldItalicFont=UnBatangBold.ttf,
+  ItalicFeatures={FakeSlant=0.12},
+  BoldItalicFeatures={FakeSlant=0.12}
+]
+\setsanshangulfont{UnDotum.ttf}[BoldFont=UnDotumBold.ttf]
+\setmonohangulfont{UnDotum.ttf}[BoldFont=UnDotumBold.ttf]
+
+\usepackage{mathtools,amsthm,bm}
+\usepackage{unicode-math}
+\setmathfont{TeX Gyre Pagella Math}
+\usepackage{microtype}
+\usepackage{setspace}
+\usepackage{needspace}
+\setstretch{1.15}
+
+\usepackage{siunitx}
+\usepackage{booktabs,longtable,tabularx,array,multirow}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds,matrix}
+\usepackage[most]{tcolorbox}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{xurl}
+\usepackage[round,authoryear]{natbib}
+\usepackage{imakeidx}
+\usepackage{scrlayer-scrpage}
+\usepackage{bookmark}
+\usepackage{hyperref}
+\usepackage[nameinlink,noabbrev]{cleveref}
+
+% luatexko가 문서 시작 시 표준 명칭을 다시 설정하므로 그 뒤에 한국어 명칭을 확정한다.
+\AtBeginDocument{%
+  \renewcommand{\contentsname}{차례}%
+  \renewcommand{\listfigurename}{그림 목차}%
+  \renewcommand{\listtablename}{표 목차}%
+  \renewcommand{\figurename}{그림}%
+  \renewcommand{\tablename}{표}%
+  \renewcommand{\bibname}{참고문헌}%
+  \renewcommand*{\partformat}{제\ \thepart\ 부}%
+  \crefname{equation}{식}{식}%
+  \Crefname{equation}{식}{식}%
+  \crefname{figure}{그림}{그림}%
+  \Crefname{figure}{그림}{그림}%
+  \crefname{table}{표}{표}%
+  \Crefname{table}{표}{표}%
+  \crefname{chapter}{장}{장}%
+  \Crefname{chapter}{장}{장}%
+  \crefname{section}{절}{절}%
+  \Crefname{section}{절}{절}%
+}
+
+\definecolor{Ink}{HTML}{1F2933}
+\definecolor{Navy}{HTML}{183B56}
+\definecolor{Blue}{HTML}{2F6690}
+\definecolor{Teal}{HTML}{277D78}
+\definecolor{Gold}{HTML}{A66B00}
+\definecolor{Brick}{HTML}{A13D3D}
+\definecolor{Paper}{HTML}{FAF9F6}
+\definecolor{SoftBlue}{HTML}{EEF5FA}
+\definecolor{SoftTeal}{HTML}{EEF8F6}
+\definecolor{SoftGold}{HTML}{FFF7E7}
+\definecolor{SoftRed}{HTML}{FFF1F1}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=Navy,
+  citecolor=Teal,
+  urlcolor=Blue,
+  pdftitle={언어모델의 계산을 해부하다},
+  pdfsubject={Decoder-only Transformer와 기계론적 해석가능성},
+  pdfauthor={LLM_Study}
+}
+
+\setkomafont{disposition}{\sffamily\bfseries}
+\setkomafont{chapter}{\sffamily\bfseries\color{Navy}}
+\setkomafont{section}{\sffamily\bfseries\color{Navy}}
+\setkomafont{subsection}{\sffamily\bfseries\color{Blue}}
+\setkomafont{part}{\sffamily\bfseries\color{Navy}}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{2}
+\KOMAoptions{numbers=noenddot}
+
+\clearpairofpagestyles
+\ihead{\headmark}
+\ohead{\pagemark}
+\automark[section]{chapter}
+\KOMAoptions{headsepline=true}
+
+\setlist[itemize]{leftmargin=2em,itemsep=0.25em,topsep=0.4em}
+\setlist[enumerate]{leftmargin=2em,itemsep=0.25em,topsep=0.4em}
+\renewcommand{\arraystretch}{1.2}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
+
+\theoremstyle{definition}
+\newtheorem{definition}{정의}[chapter]
+\newtheorem{example}[definition]{예제}
+\theoremstyle{plain}
+\newtheorem{proposition}[definition]{명제}
+\newtheorem{theorem}[definition]{정리}
+\theoremstyle{remark}
+\newtheorem{remark}[definition]{주의}
+
+\newtcolorbox{factbox}{
+  breakable, colback=SoftBlue, colframe=Blue, boxrule=0.6pt,
+  title={수학적 사실 또는 명시된 구현}, fonttitle=\bfseries\sffamily
+}
+\newtcolorbox{resultbox}[1]{
+  breakable, colback=SoftTeal, colframe=Teal, boxrule=0.6pt,
+  title={실험 결과 · #1}, fonttitle=\bfseries\sffamily
+}
+\newtcolorbox{interpretbox}[1]{
+  breakable, colback=SoftGold, colframe=Gold, boxrule=0.6pt,
+  title={제한된 해석 · #1}, fonttitle=\bfseries\sffamily
+}
+\newtcolorbox{limitbox}{
+  breakable, colback=SoftRed, colframe=Brick, boxrule=0.6pt,
+  title={한계 또는 열린 문제}, fonttitle=\bfseries\sffamily
+}
+\newtcolorbox{studybox}[1][학습 점검]{
+  breakable, colback=Paper, colframe=Ink!55, boxrule=0.5pt,
+  title={#1}, fonttitle=\bfseries\sffamily
+}
+
+\lstdefinestyle{bookcode}{
+  basicstyle=\small\ttfamily,
+  keywordstyle=\color{Blue}\bfseries,
+  commentstyle=\color{Teal},
+  stringstyle=\color{Brick},
+  backgroundcolor=\color{Paper},
+  frame=single,
+  rulecolor=\color{Ink!25},
+  breaklines=true,
+  showstringspaces=false,
+  columns=fullflexible,
+  keepspaces=true,
+  tabsize=4
+}
+\lstset{style=bookcode}
+
+\DeclareMathOperator{\softmax}{softmax}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\argmax}{arg\,max}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\rank}{rank}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\Var}{Var}
+\DeclareMathOperator{\Cov}{Cov}
+\DeclareMathOperator{\KL}{KL}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\given}{\,\middle|\,}
+\newcommand{\dd}{\mathop{}\!\mathrm{d}}
+\newcommand{\vect}[1]{\bm{#1}}
+\newcommand{\mat}[1]{\bm{#1}}
+\newcommand{\shape}[1]{\ensuremath{\left[#1\right]}}
+
+\makeindex[intoc,title=찾아보기]
