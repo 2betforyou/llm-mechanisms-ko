@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# LaTeX auxiliary and cache files
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.lot
+*.out
+*.synctex.gz
+*.toc
+
+# Locally rebuilt PDF; release PDFs under output/pdf/ are tracked.
+/main.pdf
