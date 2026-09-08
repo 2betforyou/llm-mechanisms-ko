@@ -3,42 +3,33 @@
 
 \section{결론부터: 현대 모델은 하나의 고정 설계가 아니다}
 
-``현대 LLM architecture''라는 단일 표준은 없다. 공개 모델들은 decoder-only causal
-Transformer라는 공통 골격을 자주 사용하지만 normalization, position encoding,
-MLP gating, attention head grouping, bias, weight tying, mixture-of-experts 여부와 context
-확장법은 서로 다르다. 따라서 정확한 순전파를 재현하려면 논문만이 아니라 해당
-checkpoint의 configuration과 실행 코드를 함께 확인해야 한다.
+``현대 LLM architecture''라는 단일 표준은 없다.
+공개 모델들은 decoder-only causal Transformer라는 공통 골격을 자주 사용하지만 normalization, position encoding, MLP gating, attention head grouping, bias, weight tying, mixture-of-experts 여부와 context 확장법은 서로 다르다.
+따라서 정확한 순전파를 재현하려면 논문만이 아니라 해당 checkpoint의 configuration과 실행 코드를 함께 확인해야 한다.
 
 이 장은 dense Llama 계열에서 널리 알려진 다음 경로를 대표 사례로 사용한다.
 \begin{equation}
   \text{RMSNorm}\to\text{GQA with RoPE}\to+
   \to\text{RMSNorm}\to\text{SwiGLU}\to+.
 \end{equation}
-Meta가 공개한 Llama 3 reference implementation은 attention과 feed-forward 전에
-RMSNorm을 적용하고, query와 key에 rotary embedding을 적용하며, KV head를 query
-head 수에 맞게 반복하고, SiLU-gated feed-forward를 계산한다
-\citep{meta2024llama3code,grattafiori2024llama3}. 이는 특정 공개 구현에 관한 사실이지
-모든 LLM에 관한 정의가 아니다.
+Meta가 공개한 Llama 3 reference implementation은 attention과 feed-forward 전에 RMSNorm을 적용하고, query와 key에 rotary embedding을 적용하며, KV head를 query head 수에 맞게 반복하고, SiLU-gated feed-forward를 계산한다 \citep{meta2024llama3code,grattafiori2024llama3}.
+이는 특정 공개 구현에 관한 사실이지 모든 LLM에 관한 정의가 아니다.
 
 \section{decoder-only와 causal attention}
 
-decoder-only autoregressive language model은 encoder 없이 causal self-attention block을
-반복하여 다음 joint distribution을 모델링한다.
+decoder-only autoregressive language model은 encoder 없이 causal self-attention block을 반복하여 다음 joint distribution을 모델링한다.
 \begin{equation}
   p_{\theta}(x_{1:T})=\prod_{t=1}^{T}p_{\theta}(x_t\mid x_{<t})
 \end{equation}
-원래 Transformer는 encoder와 decoder를 함께 사용하여 machine translation을 수행했지만
-\citep{vaswani2017attention}, GPT 계열은 position $t$의 activation이 $x_{>t}$에 의존하지
-않도록 미래 position을 attention에서 가린다.
+원래 Transformer는 encoder와 decoder를 함께 사용하여 machine translation을 수행했지만 \citep{vaswani2017attention}, GPT 계열은 position $t$의 activation이 $x_{>t}$에 의존하지 않도록 미래 position을 attention에서 가린다.
 
-``decoder-only''는 원래 encoder--decoder Transformer의 decoder를 그대로 떼었다는
-뜻으로만 이해하면 부정확할 수 있다. language-model decoder에는 encoder output을
-읽는 cross-attention sublayer가 없고, causal self-attention과 position-wise MLP가
-주된 block을 이룬다. prompt와 생성된 token도 같은 stream에 놓인다.
+``decoder-only''는 원래 encoder--decoder Transformer의 decoder를 그대로 떼었다는 뜻으로만 이해하면 부정확할 수 있다.
+language-model decoder에는 encoder output을 읽는 cross-attention sublayer가 없고, causal self-attention과 position-wise MLP가 주된 block을 이룬다.
+prompt와 생성된 token도 같은 stream에 놓인다.
 
-causal mask는 정보 의존성을 제한하지만 계산 순서를 항상 token별 직렬로 만들지는
-않는다. 훈련과 prompt prefill에서는 전체 sequence의 query를 한 번에 병렬 계산할 수
-있다. 생성 단계에서는 아직 존재하지 않는 다음 token 때문에 token별 반복이 필요하다.
+causal mask는 정보 의존성을 제한하지만 계산 순서를 항상 token별 직렬로 만들지는 않는다.
+훈련과 prompt prefill에서는 전체 sequence의 query를 한 번에 병렬 계산할 수 있다.
+생성 단계에서는 아직 존재하지 않는 다음 token 때문에 token별 반복이 필요하다.
 
 \section{pre-normalization과 RMSNorm}
 
@@ -49,8 +40,7 @@ LayerNorm은 feature 축의 평균과 분산을 사용한다.
   \frac{\vect{x}-\mu(\vect{x})}
        {\sqrt{\sigma^2(\vect{x})+\epsilon}}+\vect{b}.
 \end{equation}
-RMSNorm은 평균을 빼지 않고 root mean square로 scale을 정규화한다
-\citep{zhang2019rmsnorm}.
+RMSNorm은 평균을 빼지 않고 root mean square로 scale을 정규화한다 \citep{zhang2019rmsnorm}.
 \begin{equation}
   \operatorname{RMSNorm}(\vect{x})=
   \vect{g}\odot
@@ -58,26 +48,24 @@ RMSNorm은 평균을 빼지 않고 root mean square로 scale을 정규화한다
        {\sqrt{d^{-1}\sum_{i=1}^{d}x_i^2+\epsilon}}.
   \label{eq:rmsnorm}
 \end{equation}
-$\vect{g}$는 학습되는 coordinate-wise gain이다. 구현에 따라 bias를 두지 않는다.
+$\vect{g}$는 학습되는 coordinate-wise gain이다.
+구현에 따라 bias를 두지 않는다.
 \index{RMSNorm@RMSNorm}
 
-post-norm block은 sublayer와 residual addition 뒤에 normalization을 적용한다. pre-norm
-block은 sublayer가 residual stream을 읽기 전에 normalization을 적용한다. 두 배치는
-함수가 다르며 checkpoint의 가중치를 그대로 교환해 사용할 수 없다. pre-norm의
-초기 gradient 거동을 분석한 연구는 post-norm보다 warm-up 의존성이 낮아질 수 있는
-조건을 제시했지만, 이것이 모든 학습 설정에서 항상 더 우수하다는 정리는 아니다
-\citep{xiong2020layernorm}.
+post-norm block은 sublayer와 residual addition 뒤에 normalization을 적용한다.
+pre-norm block은 sublayer가 residual stream을 읽기 전에 normalization을 적용한다.
+두 배치는 함수가 다르며 checkpoint의 가중치를 그대로 교환해 사용할 수 없다.
+pre-norm의 초기 gradient 거동을 분석한 연구는 post-norm보다 warm-up 의존성이 낮아질 수 있는 조건을 제시했지만, 이것이 모든 학습 설정에서 항상 더 우수하다는 정리는 아니다 \citep{xiong2020layernorm}.
 
 \begin{factbox}
-RMSNorm은 residual stream 자체를 매번 unit RMS로 덮어쓰지 않는다. pre-norm 모델에서는
-정규화된 사본을 attention이나 MLP가 읽고, sublayer output은 정규화되지 않은 residual
-stream에 더해진다.
+RMSNorm은 residual stream 자체를 매번 unit RMS로 덮어쓰지 않는다.
+pre-norm 모델에서는 정규화된 사본을 attention이나 MLP가 읽고, sublayer output은 정규화되지 않은 residual stream에 더해진다.
 \end{factbox}
 
 \section{RoPE}
 
-Rotary Position Embedding은 짝을 이룬 query와 key 좌표를 position에 따라 회전시킨다
-\citep{su2021roformer}. 한 2차원 coordinate pair에 대해
+Rotary Position Embedding은 짝을 이룬 query와 key 좌표를 position에 따라 회전시킨다 \citep{su2021roformer}.
+한 2차원 coordinate pair에 대해
 \begin{equation}
   \mat{R}_{\theta,t}=
   \begin{bmatrix}
@@ -85,31 +73,29 @@ Rotary Position Embedding은 짝을 이룬 query와 key 좌표를 position에 �
     \sin(t\theta)& \cos(t\theta)
   \end{bmatrix}
 \end{equation}
-를 적용한다. 여러 frequency $\theta_r$에 대한 block-diagonal rotation이 전체
-head dimension을 구성한다.
+를 적용한다.
+여러 frequency $\theta_r$에 대한 block-diagonal rotation이 전체 head dimension을 구성한다.
 \index{RoPE@RoPE}
 
-RoPE를 적용한 query--key 내적은 두 position의 상대적 offset을 포함한다. position
-$i,j$의 회전된 query와 key를 $\tilde{\vect{q}}_i=\mat{R}_i\vect{q}_i$,
-$\tilde{\vect{k}}_j=\mat{R}_j\vect{k}_j$라고 하면
+RoPE를 적용한 query--key 내적은 두 position의 상대적 offset을 포함한다.
+position $i,j$의 회전된 query와 key를 $\tilde{\vect{q}}_i=\mat{R}_i\vect{q}_i$, $\tilde{\vect{k}}_j=\mat{R}_j\vect{k}_j$라고 하면
 \begin{equation}
   \tilde{\vect{q}}_i^{\mathsf T}\tilde{\vect{k}}_j
   =\vect{q}_i^{\mathsf T}\mat{R}_i^{\mathsf T}\mat{R}_j\vect{k}_j
   =\vect{q}_i^{\mathsf T}\mat{R}_{j-i}\vect{k}_j.
 \end{equation}
-따라서 attention score에 상대적 offset $j-i$가 구조적으로 들어간다. RoPE는 일반적으로
-value를 회전하지 않으며, base frequency와 장문 context scaling 방식은 모델별로
-확인해야 한다.
+따라서 attention score에 상대적 offset $j-i$가 구조적으로 들어간다.
+RoPE는 일반적으로 value를 회전하지 않으며, base frequency와 장문 context scaling 방식은 모델별로 확인해야 한다.
 
 \begin{limitbox}
-RoPE가 훈련 길이 밖의 모든 position에 안정적으로 일반화한다는 보장은 위 대수에서
-나오지 않는다. context extension은 별도의 scaling 방법과 평가가 필요한 경험적 문제다.
+RoPE가 훈련 길이 밖의 모든 position에 안정적으로 일반화한다는 보장은 위 대수에서 나오지 않는다.
+context extension은 별도의 scaling 방법과 평가가 필요한 경험적 문제다.
 \end{limitbox}
 
 \section{SwiGLU}
 
-GLU 계열은 두 affine projection 가운데 하나를 gate로 사용한다
-\citep{shazeer2020glu}. bias를 생략한 대표적인 SwiGLU feed-forward는
+GLU 계열은 두 affine projection 가운데 하나를 gate로 사용한다 \citep{shazeer2020glu}.
+bias를 생략한 대표적인 SwiGLU feed-forward는
 \begin{equation}
   \operatorname{SwiGLU}(\vect{x})=
   \mat{W}_{\mathrm{down}}
@@ -120,101 +106,92 @@ GLU 계열은 두 affine projection 가운데 하나를 gate로 사용한다
 \begin{equation}
   \operatorname{SiLU}(a)=a\,\sigma(a)
 \end{equation}
-로 쓸 수 있다. 행렬 방향은 column-vector 표기다. 코드가 row-vector를 사용하면 전치된
-shape로 나타난다.
+로 쓸 수 있다.
+행렬 방향은 column-vector 표기다.
+코드가 row-vector를 사용하면 전치된 shape로 나타난다.
 \index{SwiGLU@SwiGLU}
 
 SwiGLU에서는 gate projection의 activation이 up projection이 전달하는 내용을 조절한다.
-$\mat{W}_{\mathrm{gate}},\mat{W}_{\mathrm{up}}$은 $d$에서 $d_{\mathrm{ff}}$로,
-$\mat{W}_{\mathrm{down}}$은 다시 $d$로 보내며, 두 중간 벡터를 element-wise product로
-결합한다.
+$\mat{W}_{\mathrm{gate}},\mat{W}_{\mathrm{up}}$은 $d$에서 $d_{\mathrm{ff}}$로, $\mat{W}_{\mathrm{down}}$은 다시 $d$로 보내며, 두 중간 벡터를 element-wise product로 결합한다.
 
-``SwiGLU가 MLP의 지식을 저장한다''는 문장은 수학적 정의가 아니다. 수학적으로 확정된
-내용은 \cref{eq:swiglu}의 함수와 parameter shape다. feature나 memory에 관한 설명은
-가중치와 activation을 분석한 경험적 가설이다.
+``SwiGLU가 MLP의 지식을 저장한다''는 문장은 수학적 정의가 아니다.
+수학적으로 확정된 내용은 \cref{eq:swiglu}의 함수와 parameter shape다.
+feature나 memory에 관한 설명은 가중치와 activation을 분석한 경험적 가설이다.
 
 \section{MHA, MQA와 GQA}
 
-다중 헤드 어텐션(MHA)은 query, key, value에 같은 수의 head를 둔다. query head 수를
-$H_q$, key/value head 수를 $H_{kv}$라고 하면 MHA에서는 $H_q=H_{kv}$다. 다중 질의
-어텐션(MQA)은 여러 query head가 하나의 key head와 value head를 공유하므로
-$H_{kv}=1$이다 \citep{shazeer2019mqa}. 그룹 질의 어텐션(GQA)은 그 사이에 있으며
-$1<H_{kv}<H_q$인 구성을 허용한다 \citep{ainslie2023gqa}.
+다중 헤드 어텐션(MHA)은 query, key, value에 같은 수의 head를 둔다.
+query head 수를 $H_q$, key/value head 수를 $H_{kv}$라고 하면 MHA에서는 $H_q=H_{kv}$다.
+다중 질의 어텐션(MQA)은 여러 query head가 하나의 key head와 value head를 공유하므로 $H_{kv}=1$이다 \citep{shazeer2019mqa}.
+그룹 질의 어텐션(GQA)은 그 사이에 있으며 $1<H_{kv}<H_q$인 구성을 허용한다 \citep{ainslie2023gqa}.
 \index{GQA@그룹 질의 어텐션(GQA)}
 
-GQA는 각 query head를 하나의 shared key/value head에 대응시킨다. $H_q$가 $H_{kv}$의
-배수이고 $g=H_q/H_{kv}$일 때, query head $h$가 사용하는 key/value head의 번호는
-대표적으로
+GQA는 각 query head를 하나의 shared key/value head에 대응시킨다.
+$H_q$가 $H_{kv}$의 배수이고 $g=H_q/H_{kv}$일 때, query head $h$가 사용하는 key/value head의 번호는 대표적으로
 \begin{equation}
   r(h)=\left\lfloor\frac{h}{g}\right\rfloor
 \end{equation}
-로 정한다. 그러면 head $h$의 계산은
+로 정한다.
+그러면 head $h$의 계산은
 \begin{align}
   \mat{A}^{h}&=\softmax\!\left(
   \frac{\mat{Q}^{h}(\mat{K}^{r(h)})^{\mathsf T}}{\sqrt{d_h}}+\mat{M}
   \right),\\
   \mat{O}^{h}&=\mat{A}^{h}\mat{V}^{r(h)}
 \end{align}
-가 된다. ``key/value head를 반복한다''는 구현은 같은 $\mat{K}^{r(h)}$와
-$\mat{V}^{r(h)}$를 여러 query head에 대응시키기 위한 shape 조작이다. 실제 데이터를
-복사하지 않고 broadcast하거나 특화된 kernel에서 직접 공유할 수도 있다.
+가 된다.
+``key/value head를 반복한다''는 구현은 같은 $\mat{K}^{r(h)}$와 $\mat{V}^{r(h)}$를 여러 query head에 대응시키기 위한 shape 조작이다.
+실제 데이터를 복사하지 않고 broadcast하거나 특화된 kernel에서 직접 공유할 수도 있다.
 
-decode 단계에서 매 token마다 저장하는 key와 value 원소 수는 대략
-$2LH_{kv}d_h$다. 따라서 $H_{kv}$를 줄이면 KV cache의 메모리 대역폭과 저장량을 줄일
-수 있다. 그러나 MHA, MQA, GQA의 품질과 속도 차이는 모델 크기, 학습법, kernel과
-hardware에 의존한다. GQA 논문은 MHA checkpoint를 적은 추가 학습으로 GQA로 바꾸는
-방법과 그 실험 결과를 제시했지만, 모든 모델에서 같은 trade-off를 보장하는 정리는
-아니다 \citep{ainslie2023gqa}.
+decode 단계에서 매 token마다 저장하는 key와 value 원소 수는 대략 $2LH_{kv}d_h$다.
+따라서 $H_{kv}$를 줄이면 KV cache의 메모리 대역폭과 저장량을 줄일 수 있다.
+그러나 MHA, MQA, GQA의 품질과 속도 차이는 모델 크기, 학습법, kernel과 hardware에 의존한다.
+GQA 논문은 MHA checkpoint를 적은 추가 학습으로 GQA로 바꾸는 방법과 그 실험 결과를 제시했지만, 모든 모델에서 같은 trade-off를 보장하는 정리는 아니다 \citep{ainslie2023gqa}.
 
 \begin{factbox}
-GQA는 query의 수를 줄이는 방법이 아니다. query head는 여러 개를 유지하되, 각 그룹이
-같은 key와 value를 읽는다. 따라서 attention weight는 query head마다 다를 수 있다.
+GQA는 query의 수를 줄이는 방법이 아니다.
+query head는 여러 개를 유지하되, 각 그룹이 같은 key와 value를 읽는다.
+따라서 attention weight는 query head마다 다를 수 있다.
 \end{factbox}
 
 \section{tokenization과 vocabulary}
 
-모델은 문자열을 직접 받지 않는다. tokenizer가 byte 또는 Unicode 문자열을 vocabulary의
-정수 ID 열로 바꾼다. Byte Pair Encoding(BPE)은 반복적으로 빈도가 높은 인접 symbol
-pair를 합치는 압축 알고리즘에서 출발했으며, 신경망 번역에서는 subword vocabulary를
-만드는 방법으로 사용되었다 \citep{sennrich2016bpe}. SentencePiece는 사전 분절된 단어를
-요구하지 않고 raw sentence에서 subword model을 학습하는 구현을 제안했다
-\citep{kudo2018sentencepiece}.
+모델은 문자열을 직접 받지 않는다.
+tokenizer가 byte 또는 Unicode 문자열을 vocabulary의 정수 ID 열로 바꾼다.
+Byte Pair Encoding(BPE)은 반복적으로 빈도가 높은 인접 symbol pair를 합치는 압축 알고리즘에서 출발했으며, 신경망 번역에서는 subword vocabulary를 만드는 방법으로 사용되었다 \citep{sennrich2016bpe}.
+SentencePiece는 사전 분절된 단어를 요구하지 않고 raw sentence에서 subword model을 학습하는 구현을 제안했다 \citep{kudo2018sentencepiece}.
 \index{tokenizer@토크나이저(tokenizer)}
 
-token과 단어는 일반적으로 일대일로 대응하지 않는다. tokenization 함수 $\tau$와
-detokenization 함수 $\delta$를
+token과 단어는 일반적으로 일대일로 대응하지 않는다.
+tokenization 함수 $\tau$와 detokenization 함수 $\delta$를
 \begin{equation}
   \tau:\mathcal{S}\to\{0,\ldots,V-1\}^{*},\qquad
   \delta:\{0,\ldots,V-1\}^{*}\to\mathcal{S}
 \end{equation}
-로 쓰자. 여기서 $\mathcal{S}$는 문자열 집합이고 별표는 길이가 가변적인 열을 뜻한다.
-공백, 구두점, byte 조각 또는 여러
-문자가 한 token이 될 수 있다. 같은 표면 문자열도 앞 공백과 normalization 방식에 따라
-서로 다른 ID 열이 될 수 있다.
+로 쓰자.
+여기서 $\mathcal{S}$는 문자열 집합이고 별표는 길이가 가변적인 열을 뜻한다.
+공백, 구두점, byte 조각 또는 여러 문자가 한 token이 될 수 있다.
+같은 표면 문자열도 앞 공백과 normalization 방식에 따라 서로 다른 ID 열이 될 수 있다.
 
-tokenizer는 모델 가중치와 분리된 임의의 전처리기가 아니다. embedding과 LM head의
-row 의미가 vocabulary ID에 고정되어 있으므로 checkpoint와 맞는 tokenizer를 사용해야
-한다. 특수 token의 ID, 문장 시작과 끝 처리, 대화 template도 실제 입력 열을 바꾼다.
+tokenizer는 모델 가중치와 분리된 임의의 전처리기가 아니다.
+embedding과 LM head의 row 의미가 vocabulary ID에 고정되어 있으므로 checkpoint와 맞는 tokenizer를 사용해야 한다.
+특수 token의 ID, 문장 시작과 끝 처리, 대화 template도 실제 입력 열을 바꾼다.
 
 \begin{limitbox}
-모델이 ``몇 단어를 보았다''는 표현은 token 수를 정확히 나타내지 않는다. 계산량,
-context 길이와 loss를 재현하려면 원 문자열뿐 아니라 tokenizer 버전, normalization,
-special-token 설정과 최종 token IDs를 기록해야 한다.
+모델이 ``몇 단어를 보았다''는 표현은 token 수를 정확히 나타내지 않는다.
+계산량, context 길이와 loss를 재현하려면 원 문자열뿐 아니라 tokenizer 버전, normalization, special-token 설정과 최종 token IDs를 기록해야 한다.
 \end{limitbox}
 
 \section{KV cache, prefill과 decode}
 
-길이 $T$의 prompt를 처음 처리하는 단계를 prefill이라고 한다. 모든 prompt position의
-query, key와 value를 만들고 causal attention을 병렬로 계산한 뒤, 각 layer의 key와
-value를 cache에 보관할 수 있다. 이어서 token 한 개를 생성하는 decode 단계에서는 새
-position의 query, key와 value만 계산하고, 새 query가 과거의 cached key/value와 새
-key/value를 함께 읽는다.
+길이 $T$의 prompt를 처음 처리하는 단계를 prefill이라고 한다.
+모든 prompt position의 query, key와 value를 만들고 causal attention을 병렬로 계산한 뒤, 각 layer의 key와 value를 cache에 보관할 수 있다.
+이어서 token 한 개를 생성하는 decode 단계에서는 새 position의 query, key와 value만 계산하고, 새 query가 과거의 cached key/value와 새 key/value를 함께 읽는다.
 \index{KV cache@KV 캐시}
 \index{prefill@prefill과 decode}
 
-decode의 새 query는 과거 cache에 새 key와 value를 붙인 전체 prefix를 읽는다. layer
-$\ell$의 과거 cache를 $\mat{K}^{(\ell)}_{1:T},\mat{V}^{(\ell)}_{1:T}$라고 하고, 새
-token의 projection을 $\vect{q}_{T+1},\vect{k}_{T+1},\vect{v}_{T+1}$로 쓰면
+decode의 새 query는 과거 cache에 새 key와 value를 붙인 전체 prefix를 읽는다.
+layer $\ell$의 과거 cache를 $\mat{K}^{(\ell)}_{1:T},\mat{V}^{(\ell)}_{1:T}$라고 하고, 새 token의 projection을 $\vect{q}_{T+1},\vect{k}_{T+1},\vect{v}_{T+1}$로 쓰면
 \begin{align}
   \mat{K}_{1:T+1}&=\operatorname{Append}(\mat{K}_{1:T},\vect{k}_{T+1}),\\
   \mat{V}_{1:T+1}&=\operatorname{Append}(\mat{V}_{1:T},\vect{v}_{T+1}),\\
@@ -222,14 +199,13 @@ token의 projection을 $\vect{q}_{T+1},\vect{k}_{T+1},\vect{v}_{T+1}$로 쓰면
   \softmax\!\left(\frac{\vect{q}_{T+1}\mat{K}_{1:T+1}^{\mathsf T}}
   {\sqrt{d_h}}\right)\mat{V}_{1:T+1}
 \end{align}
-를 계산한다. 과거 token의 key와 value는 다시 계산하지 않는다.
+를 계산한다.
+과거 token의 key와 value는 다시 계산하지 않는다.
 
 cache가 없으면 생성 step $s$마다 앞선 $T+s$개 position의 K/V를 다시 만들어야 한다.
-cache는 이 중복 projection을 없애지만, sequence 길이에 비례하는 저장 공간과 매 step의
-cache 읽기 비용이 필요하다. batch의 sequence가 서로 다른 속도로 끝나면 memory block을
-효율적으로 배치하는 별도 시스템 문제가 생긴다. PagedAttention은 운영체제의 가상
-메모리와 비슷한 block 단위 관리로 KV cache의 낭비와 공유 문제를 다루는 시스템을
-제안했다 \citep{kwon2023pagedattention}.
+cache는 이 중복 projection을 없애지만, sequence 길이에 비례하는 저장 공간과 매 step의 cache 읽기 비용이 필요하다.
+batch의 sequence가 서로 다른 속도로 끝나면 memory block을 효율적으로 배치하는 별도 시스템 문제가 생긴다.
+PagedAttention은 운영체제의 가상 메모리와 비슷한 block 단위 관리로 KV cache의 낭비와 공유 문제를 다루는 시스템을 제안했다 \citep{kwon2023pagedattention}.
 
 \begin{table}[htbp]
 \centering
@@ -249,28 +225,24 @@ attention이 읽는 K/V & 각 position의 허용된 prefix & 과거 cache와 새
 \end{tabularx}
 \end{table}
 
-KV cache는 수학적 모델의 조건부분포를 바꾸지 않는 재사용 장치다. 다만 dtype, kernel,
-양자화와 연산 순서가 바뀌면 유한정밀도 결과가 완전히 bit-wise 동일하지 않을 수 있다.
+KV cache는 수학적 모델의 조건부분포를 바꾸지 않는 재사용 장치다.
+다만 dtype, kernel, 양자화와 연산 순서가 바뀌면 유한정밀도 결과가 완전히 bit-wise 동일하지 않을 수 있다.
 
 \section{FlashAttention과 수치적 동등성}
 
-표준 attention을 순진하게 구현하면 $\mat{S}=\mat{Q}\mat{K}^{\mathsf T}$와
-$\mat{A}=\softmax(\mat{S})$를 고대역폭 메모리에 저장하므로 sequence 길이에 대해
-quadratic한 중간 메모리가 든다. FlashAttention은 attention 행렬을 block으로 나누고
-on-chip SRAM과 고대역폭 메모리 사이의 읽기와 쓰기를 줄이는 순서를 사용한다. 원
-논문은 근사 attention이 아니라 exact attention algorithm으로 제시하며, 역전파에
-필요한 중간값도 재계산과 online softmax로 관리한다 \citep{dao2022flashattention}.
+표준 attention을 순진하게 구현하면 $\mat{S}=\mat{Q}\mat{K}^{\mathsf T}$와 $\mat{A}=\softmax(\mat{S})$를 고대역폭 메모리에 저장하므로 sequence 길이에 대해 quadratic한 중간 메모리가 든다.
+FlashAttention은 attention 행렬을 block으로 나누고 on-chip SRAM과 고대역폭 메모리 사이의 읽기와 쓰기를 줄이는 순서를 사용한다.
+원 논문은 근사 attention이 아니라 exact attention algorithm으로 제시하며, 역전파에 필요한 중간값도 재계산과 online softmax로 관리한다 \citep{dao2022flashattention}.
 \index{FlashAttention@FlashAttention}
 
 online softmax는 block별 최대값과 지수합을 재조정하여 전체 row의 softmax를 보존한다.
-지금까지 처리한 score의 최대값과 지수합을 $m,l$이라고 하고 새 block의 최대값과
-지수합을 $m_b,l_b$라고 할 때, 병합식은
+지금까지 처리한 score의 최대값과 지수합을 $m,l$이라고 하고 새 block의 최대값과 지수합을 $m_b,l_b$라고 할 때, 병합식은
 \begin{align}
   m'&=\max(m,m_b),\\
   l'&=e^{m-m'}l+e^{m_b-m'}l_b
 \end{align}
-가 된다. value의 가중합도 같은 scale factor로 갱신하면 전체 score를 한꺼번에
-materialize하지 않고 같은 실수식의 결과를 얻을 수 있다.
+가 된다.
+value의 가중합도 같은 scale factor로 갱신하면 전체 score를 한꺼번에 materialize하지 않고 같은 실수식의 결과를 얻을 수 있다.
 
 \begin{factbox}
 FlashAttention은 attention의 모델 구조를 새로운 의미론으로 바꾸는 구성요소가 아니다.
@@ -278,79 +250,65 @@ FlashAttention은 attention의 모델 구조를 새로운 의미론으로 바꾸
 따라서 회로를 해석할 때는 수학적 attention과 kernel 구현을 구분해야 한다.
 \end{factbox}
 
-``exact''는 이상적인 연산식에 관한 표현이다. floating-point 덧셈은 결합법칙을 만족하지
-않으므로 연산 순서가 바뀌면 마지막 bit가 달라질 수 있다. dropout, mixed precision,
-kernel 버전과 hardware까지 고정하지 않으면 bit-wise 재현성을 기대해서는 안 된다.
+``exact''는 이상적인 연산식에 관한 표현이다.
+floating-point 덧셈은 결합법칙을 만족하지 않으므로 연산 순서가 바뀌면 마지막 bit가 달라질 수 있다.
+dropout, mixed precision, kernel 버전과 hardware까지 고정하지 않으면 bit-wise 재현성을 기대해서는 안 된다.
 
 \section{weight tying과 LM head}
 
-weight tying은 입력 embedding과 출력 LM head가 같은 parameter를 공유하는 설계다. 두
-행렬 $\mat{E},\mat{W}_U\in\R^{V\times d}$에 대해
+weight tying은 입력 embedding과 출력 LM head가 같은 parameter를 공유하는 설계다.
+두 행렬 $\mat{E},\mat{W}_U\in\R^{V\times d}$에 대해
 \begin{equation}
   \mat{W}_U=\mat{E}
 \end{equation}
 이 등식은 두 모듈이 같은 parameter 저장소를 사용한다는 뜻이다 \citep{press2017tying}.
-untied 모델은 두 행렬을
-독립적으로 학습한다. tying 여부는 architecture에 따라 다르며, 같은 shape라는 사실만으로
-공유를 결론낼 수 없다.
+untied 모델은 두 행렬을 독립적으로 학습한다.
+tying 여부는 architecture에 따라 다르며, 같은 shape라는 사실만으로 공유를 결론낼 수 없다.
 
-tied 모델에서도 input embedding으로서의 역할과 unembedding으로서의 역할은 계산
-문맥이 다르다. 입력에서는 token ID로 row를 선택한다. 출력에서는 마지막 hidden vector와
-모든 row의 내적을 한꺼번에 계산한다. final normalization이나 별도 output bias가 있으면
-그 연산도 포함해야 한다.
+tied 모델에서도 input embedding으로서의 역할과 unembedding으로서의 역할은 계산 문맥이 다르다.
+입력에서는 token ID로 row를 선택한다.
+출력에서는 마지막 hidden vector와 모든 row의 내적을 한꺼번에 계산한다.
+final normalization이나 별도 output bias가 있으면 그 연산도 포함해야 한다.
 
 \section{훈련이 가중치를 만드는 과정}
 
-순전파 수식은 가중치가 어떻게 생겼는지 설명하지 않는다. autoregressive pretraining은
-corpus의 token 열에서 다음 token 음의 로그가능도를 최소화한다.
+순전파 수식은 가중치가 어떻게 생겼는지 설명하지 않는다.
+autoregressive pretraining은 corpus의 token 열에서 다음 token 음의 로그가능도를 최소화한다.
 \begin{equation}
   \mathcal{L}_{\mathrm{NTP}}(\theta)
   =-\sum_{t=1}^{T-1}\log p_{\theta}(x_{t+1}\mid x_{\le t}).
   \label{eq:next-token-loss}
 \end{equation}
-teacher forcing에서는 실제 prefix $x_{\le t}$를 모든 position에 제공하고 loss를
-병렬 계산한다. 역전파가 $\nabla_{\theta}\mathcal{L}$을 구하면 optimizer가 parameter를
-갱신한다. Adam은 first moment와 second raw moment의 지수이동평균을 사용하며
-\citep{kingma2015adam}, AdamW는 weight decay를 gradient update에서 분리한다
-\citep{loshchilov2019adamw}.
+teacher forcing에서는 실제 prefix $x_{\le t}$를 모든 position에 제공하고 loss를 병렬 계산한다.
+역전파가 $\nabla_{\theta}\mathcal{L}$을 구하면 optimizer가 parameter를 갱신한다.
+Adam은 first moment와 second raw moment의 지수이동평균을 사용하며 \citep{kingma2015adam}, AdamW는 weight decay를 gradient update에서 분리한다 \citep{loshchilov2019adamw}.
 
-학습 결과는 architecture만으로 정해지지 않는다. 데이터의 분포와 순서, objective,
-초기값, optimizer, learning-rate schedule, batch 구성, 정밀도와 분산 학습의 수치적
-세부사항이 최종 parameter에 영향을 준다. 모델 크기, 데이터와 compute 사이의 경험적
-scaling 관계도 보고되었지만 \citep{kaplan2020scaling,hoffmann2022chinchilla}, 이는 특정
-실험 범위에 맞춘 경험 법칙이며 개별 능력이나 내부 회로를 직접 결정하는 공식이 아니다.
+학습 결과는 architecture만으로 정해지지 않는다.
+데이터의 분포와 순서, objective, 초기값, optimizer, learning-rate schedule, batch 구성, 정밀도와 분산 학습의 수치적 세부사항이 최종 parameter에 영향을 준다.
+모델 크기, 데이터와 compute 사이의 경험적 scaling 관계도 보고되었지만 \citep{kaplan2020scaling,hoffmann2022chinchilla}, 이는 특정 실험 범위에 맞춘 경험 법칙이며 개별 능력이나 내부 회로를 직접 결정하는 공식이 아니다.
 
 instruction tuning과 preference optimization은 pretraining 뒤의 출력 분포를 바꾼다.
-InstructGPT는 supervised demonstrations와 사람 선호로 학습한 reward model, PPO 기반
-강화학습을 조합했다 \citep{ouyang2022instructgpt,schulman2017ppo}. DPO는 명시적인
-reward model과 online reinforcement-learning loop 없이 preference pair에 대한 분류형
-목적함수를 최적화하는 방법을 유도했다 \citep{rafailov2023dpo}. 이들은 가능한 post-training
-절차의 예이며 모든 공개 또는 상용 LLM의 동일한 recipe가 아니다.
+InstructGPT는 supervised demonstrations와 사람 선호로 학습한 reward model, PPO 기반 강화학습을 조합했다 \citep{ouyang2022instructgpt,schulman2017ppo}.
+DPO는 명시적인 reward model과 online reinforcement-learning loop 없이 preference pair에 대한 분류형 목적함수를 최적화하는 방법을 유도했다 \citep{rafailov2023dpo}.
+이들은 가능한 post-training 절차의 예이며 모든 공개 또는 상용 LLM의 동일한 recipe가 아니다.
 
 \Needspace{9\baselineskip}
 \begin{limitbox}
-next-token objective를 안다고 해서 학습된 내부 알고리즘을 역으로 유일하게 복원할 수
-있는 것은 아니다. 서로 다른 parameterization과 내부 표현이 같은 관측 출력 또는 매우
-비슷한 loss를 만들 수 있다. 이 비식별성 때문에 내부 메커니즘에는 별도의 관찰과 개입이
-필요하다.
+next-token objective를 안다고 해서 학습된 내부 알고리즘을 역으로 유일하게 복원할 수 있는 것은 아니다.
+서로 다른 parameterization과 내부 표현이 같은 관측 출력 또는 매우 비슷한 loss를 만들 수 있다.
+이 비식별성 때문에 내부 메커니즘에는 별도의 관찰과 개입이 필요하다.
 \end{limitbox}
 
 \section{Phase 3 학습 점검}
 
 \begin{studybox}
 \begin{enumerate}
-  \item 공개 checkpoint 하나를 선택하여 layer 수, $d$, $d_{\mathrm{ff}}$, $H_q$,
-        $H_{kv}$, RoPE 설정, normalization의 $\epsilon$과 weight tying 여부를 표로 만든다.
-  \item $H_q=32$, $H_{kv}=8$, $d_h=128$일 때 각 query head가 공유하는 KV head를 모두
-        적고, token 한 개당 layer별 cache 원소 수를 계산한다.
-  \item 같은 문자열을 앞 공백 유무와 Unicode normalization을 바꾸어 token ID로 변환하고
-        차이를 기록한다.
-  \item 길이 $T$인 prompt의 prefill과 $n$개 token decode에서 어떤 K/V projection이
-        재사용되는지 의사코드로 쓴다.
-  \item FlashAttention이 줄이는 것은 수학적 연산, HBM I/O, 중간 메모리 중 무엇인지
-        구분한다.
-  \item pretraining objective, optimizer와 post-training objective가 각각 순전파 함수의
-        어떤 parameter를 바꾸는지 설명한다.
+  \item 공개 checkpoint 하나를 선택하여 layer 수, $d$, $d_{\mathrm{ff}}$, $H_q$, $H_{kv}$, RoPE 설정, normalization의 $\epsilon$과 weight tying 여부를 표로 만든다.
+  \item $H_q=32$, $H_{kv}=8$, $d_h=128$일 때 각 query head가 공유하는 KV head를 모두 적고, token 한 개당 layer별 cache 원소 수를 계산한다.
+  \item 같은 문자열을 앞 공백 유무와 Unicode normalization을 바꾸어 token ID로 변환하고 차이를 기록한다.
+  \item 길이 $T$인 prompt의 prefill과 $n$개 token decode에서 어떤 K/V projection이 재사용되는지 의사코드로 쓴다.
+  \item FlashAttention이 줄이는 것은 수학적 연산, HBM I/O, 중간 메모리 중 무엇인지 구분한다.
+  \item pretraining objective, optimizer와 post-training objective가 각각 순전파 함수의 어떤 parameter를 바꾸는지 설명한다.
 \end{enumerate}
 \end{studybox}
 

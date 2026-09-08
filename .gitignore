@@ -1,6 +1,10 @@
 # macOS
 .DS_Store
 
+# Python cache files
+__pycache__/
+*.py[cod]
+
 # LaTeX auxiliary and cache files
 *.aux
 *.bbl

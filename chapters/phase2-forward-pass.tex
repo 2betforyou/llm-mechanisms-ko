@@ -3,14 +3,12 @@
 
 \section{결론부터: 다음 토큰 분포는 합성함수의 출력이다}
 
-decoder-only Transformer의 한 번의 순전파는 token sequence를 vocabulary 전체의
-logits로 변환하는 결정론적 함수다. dropout을 끄고 가중치와 수치 연산을 고정하면,
-입력 token IDs가 같을 때 logits도 같다. 다음 token을 실제로 고르는 sampling 단계에는
-별도의 난수가 들어갈 수 있다.
+decoder-only Transformer의 한 번의 순전파는 token sequence를 vocabulary 전체의 logits로 변환하는 결정론적 함수다.
+dropout을 끄고 가중치와 수치 연산을 고정하면, 입력 token IDs가 같을 때 logits도 같다.
+다음 token을 실제로 고르는 sampling 단계에는 별도의 난수가 들어갈 수 있다.
 \index{autoregressive generation@자기회귀 생성(autoregressive generation)}
 
-pre-normalization을 사용하는 순차형 block은 attention update와 MLP update를 차례로
-residual stream에 더한다.
+pre-normalization을 사용하는 순차형 block은 attention update와 MLP update를 차례로 residual stream에 더한다.
 \begin{align}
   \mat{U}^{(\ell)}
     &=\mat{X}^{(\ell)}+\operatorname{Attn}^{(\ell)}
@@ -26,14 +24,14 @@ residual stream에 더한다.
   \mat{Z}&=\mat{H}\mat{W}_{U}^{\mathsf T}+\vect{b}_{U},\\
   p(x_{T+1}=v\mid x_{1:T})&=\softmax(\mat{Z}_{:,T,:})_v
 \end{align}
-를 계산한다. 실제 구현은 bias를 생략하거나 embedding과 unembedding weight를 공유할
-수 있다. 원래 Transformer의 모든 변형이 \cref{eq:prenorm-block}과 같은 배치를
-사용하는 것은 아니다 \citep{vaswani2017attention,xiong2020layernorm}.
+를 계산한다.
+실제 구현은 bias를 생략하거나 embedding과 unembedding weight를 공유할 수 있다.
+원래 Transformer의 모든 변형이 \cref{eq:prenorm-block}과 같은 배치를 사용하는 것은 아니다 \citep{vaswani2017attention,xiong2020layernorm}.
 
 \section{기호와 tensor shape}
 
-순전파를 검산하려면 모든 수식에서 같은 축과 차원 기호를 사용해야 한다. 이 장에서는
-다음 기호를 고정한다.
+순전파를 검산하려면 모든 수식에서 같은 축과 차원 기호를 사용해야 한다.
+이 장에서는 다음 기호를 고정한다.
 
 \begin{table}[htbp]
 \centering
@@ -57,40 +55,36 @@ $\mat{Z}$ & 각 위치와 token의 logit & $\shape{B,T,V}$ \\
 \end{tabularx}
 \end{table}
 
-수식에서는 읽기 쉽도록 batch 축을 생략할 때가 있다. 그러나 실제 구현에서 batch 축이
-사라지는 것은 아니다. position $i$의 query는 destination, position $j$의 key와
-value는 source라고 부르겠다. 이 이름을 고정하면 attention matrix의 행과 열을
-뒤바꾸는 실수를 줄일 수 있다.
+수식에서는 읽기 쉽도록 batch 축을 생략할 때가 있다.
+그러나 실제 구현에서 batch 축이 사라지는 것은 아니다.
+position $i$의 query는 destination, position $j$의 key와 value는 source라고 부르겠다.
+이 이름을 고정하면 attention matrix의 행과 열을 뒤바꾸는 실수를 줄일 수 있다.
 
 \section{토큰 ID에서 residual stream으로}
 
-tokenizer가 문자열을 정수열 $(t_1,\ldots,t_T)$로 바꾸면
-$t_i\in\{0,\ldots,V-1\}$이다. embedding matrix
-$\mat{E}\in\R^{V\times d}$에서 각 row를 선택하여
+tokenizer가 문자열을 정수열 $(t_1,\ldots,t_T)$로 바꾸면 $t_i\in\{0,\ldots,V-1\}$이다.
+embedding matrix $\mat{E}\in\R^{V\times d}$에서 각 row를 선택하여
 \begin{equation}
   \mat{X}^{(0)}_{b,i,:}=\mat{E}_{t_{b,i},:}
 \end{equation}
-를 얻는다. absolute positional embedding을 사용하는 모델은 position vector를 여기서
-더할 수 있다. RoPE를 사용하는 모델은 일반적으로 input embedding에 position vector를
-더하지 않고 attention 안의 query와 key를 회전한다. 자세한 내용은
-\cref{chap:phase3}에서 다룬다.
+를 얻는다.
+absolute positional embedding을 사용하는 모델은 position vector를 여기서 더할 수 있다.
+RoPE를 사용하는 모델은 일반적으로 input embedding에 position vector를 더하지 않고 attention 안의 query와 key를 회전한다.
+자세한 내용은 \cref{chap:phase3}에서 다룬다.
 
-padding을 포함하는 batch에서는 padding 위치를 막는 mask가 causal mask와 별도로
-필요할 수 있다. 반면 단일 sequence만 처리하며 padding이 없다면 causal mask만 있으면
-된다. tokenizer가 만든 token 경계와 모델이 처리하는 position은 문자나 단어 경계와
-일치할 필요가 없다.
+padding을 포함하는 batch에서는 padding 위치를 막는 mask가 causal mask와 별도로 필요할 수 있다.
+반면 단일 sequence만 처리하며 padding이 없다면 causal mask만 있으면 된다.
+tokenizer가 만든 token 경계와 모델이 처리하는 position은 문자나 단어 경계와 일치할 필요가 없다.
 
 \begin{factbox}
-한 position의 초기 벡터는 그 token ID에 대응하는 embedding이다. 첫 attention layer를
-통과한 뒤에는 앞선 여러 position의 value가 섞일 수 있으므로, 같은 token ID도 문맥에
-따라 서로 다른 residual vector를 갖는다.
+한 position의 초기 벡터는 그 token ID에 대응하는 embedding이다.
+첫 attention layer를 통과한 뒤에는 앞선 여러 position의 value가 섞일 수 있으므로, 같은 token ID도 문맥에 따라 서로 다른 residual vector를 갖는다.
 \end{factbox}
 
 \section{한 attention head의 모든 계산}
 
 한 attention head는 정규화한 residual stream에서 query, key와 value를 각각 투영한다.
-$\mat{R}=\operatorname{Norm}(\mat{X})\in\R^{B\times T\times d}$라고 두면 head $h$의
-세 projection은 다음과 같다.
+$\mat{R}=\operatorname{Norm}(\mat{X})\in\R^{B\times T\times d}$라고 두면 head $h$의 세 projection은 다음과 같다.
 \begin{align}
   \mat{Q}^{h}&=\mat{R}\mat{W}^{h}_{Q}, &
   \mat{W}^{h}_{Q}&\in\R^{d\times d_h},\\
@@ -99,8 +93,7 @@ $\mat{R}=\operatorname{Norm}(\mat{X})\in\R^{B\times T\times d}$라고 두면 hea
   \mat{V}^{h}&=\mat{R}\mat{W}^{h}_{V}, &
   \mat{W}^{h}_{V}&\in\R^{d\times d_h}.
 \end{align}
-따라서 $\mat{Q}^{h},\mat{K}^{h},\mat{V}^{h}$의 shape는 모두
-$\shape{B,T,d_h}$다.
+따라서 $\mat{Q}^{h},\mat{K}^{h},\mat{V}^{h}$의 shape는 모두 $\shape{B,T,d_h}$다.
 
 destination $i$와 source $j$ 사이의 attention score는
 \begin{equation}
@@ -108,7 +101,8 @@ destination $i$와 source $j$ 사이의 attention score는
   \frac{\langle\vect{q}^{h}_{b,i},\vect{k}^{h}_{b,j}\rangle}{\sqrt{d_h}}
   +M_{i,j}
 \end{equation}
-이다. causal mask는
+이다.
+causal mask는
 \begin{equation}
   M_{i,j}=\begin{cases}
   0,&j\le i,\\
@@ -122,7 +116,8 @@ source 축에 row-wise softmax를 적용하면
   {\sum_{k=1}^{T}\exp S^h_{b,i,k}},
   \qquad \sum_j A^h_{b,i,j}=1
 \end{equation}
-을 얻는다. masked position의 weight는 이상적인 실수 연산에서 0이다.
+을 얻는다.
+masked position의 weight는 이상적인 실수 연산에서 0이다.
 \index{causal attention@인과적 어텐션(causal attention)}
 \index{QKV@query--key--value (QKV)}
 
@@ -131,48 +126,43 @@ source 축에 row-wise softmax를 적용하면
   \vect{o}^{h}_{b,i}=\sum_{j=1}^{T}A^h_{b,i,j}\vect{v}^{h}_{b,j}.
   \label{eq:head-weighted-sum}
 \end{equation}
-$\mat{A}^{h}$의 shape는 $\shape{B,T,T}$이고 $\mat{O}^{h}$의 shape는
-$\shape{B,T,d_h}$다. causal mask 때문에 position $i$의 출력은 $j\le i$인 value만
-직접 사용한다.
+$\mat{A}^{h}$의 shape는 $\shape{B,T,T}$이고 $\mat{O}^{h}$의 shape는 $\shape{B,T,d_h}$다.
+causal mask 때문에 position $i$의 출력은 $j\le i$인 value만 직접 사용한다.
 
 \begin{interpretbox}{``정보를 가져온다''는 직관}
-\Cref{eq:head-weighted-sum} 때문에 attention을 source position에서 value 정보를
-가져오는 연산이라고 설명할 수 있다. 다만 어떤 source를 선택하는지는 query와 key의
-문맥 의존적 계산이며, 전달되는 내용도 원 residual vector 자체가 아니라 value
-projection이다. attention weight만 보아서는 output projection 이후의 효과를 알 수 없다.
+\Cref{eq:head-weighted-sum} 때문에 attention을 source position에서 value 정보를 가져오는 연산이라고 설명할 수 있다.
+다만 어떤 source를 선택하는지는 query와 key의 문맥 의존적 계산이며, 전달되는 내용도 원 residual vector 자체가 아니라 value projection이다.
+attention weight만 보아서는 output projection 이후의 효과를 알 수 없다.
 \end{interpretbox}
 
 \section{multi-head attention과 output projection}
 
-multi-head attention은 $H$개 head의 출력을 이어 붙인 뒤 output projection으로 residual
-차원에 되돌린다. head 출력을 마지막 축에서 이어 붙이면
+multi-head attention은 $H$개 head의 출력을 이어 붙인 뒤 output projection으로 residual 차원에 되돌린다.
+head 출력을 마지막 축에서 이어 붙이면
 \begin{equation}
   \mat{O}_{\mathrm{cat}}=\operatorname{Concat}
   (\mat{O}^{1},\ldots,\mat{O}^{H})
   \in\R^{B\times T\times Hd_h}.
 \end{equation}
-$Hd_h=d$인 일반적인 설정에서는 output projection
-$\mat{W}_{O}\in\R^{d\times d}$를 곱하여
+$Hd_h=d$인 일반적인 설정에서는 output projection $\mat{W}_{O}\in\R^{d\times d}$를 곱하여
 \begin{equation}
   \Delta\mat{X}_{\mathrm{attn}}=
   \mat{O}_{\mathrm{cat}}\mat{W}_{O}
   \in\R^{B\times T\times d}
 \end{equation}
-를 얻는다. 이를 현재 residual stream에 더할 수 있는 shape로 되돌리는 과정이다.
+를 얻는다.
+이를 현재 residual stream에 더할 수 있는 shape로 되돌리는 과정이다.
 
-$\mat{W}_{O}$를 head별 row block으로 나누면 전체 출력은 head별 residual update의
-합으로도 쓸 수 있다.
+$\mat{W}_{O}$를 head별 row block으로 나누면 전체 출력은 head별 residual update의 합으로도 쓸 수 있다.
 \begin{equation}
   \Delta\mat{X}_{\mathrm{attn}}
   =\sum_{h=1}^{H}\mat{O}^{h}\mat{W}^{h}_{O}.
 \end{equation}
-따라서 concatenation 구현과 head별 합 표현은 서로 다른 모델이 아니라 같은 선형연산의
-두 표기다 \citep{elhage2021framework}.
+따라서 concatenation 구현과 head별 합 표현은 서로 다른 모델이 아니라 같은 선형연산의 두 표기다 \citep{elhage2021framework}.
 
-attention pattern $\mat{A}^{h}$는 input에 의존하며 softmax 때문에 비선형이다. 그러나
-특정 input에서 $\mat{A}^{h}$를 고정하면 value와 output projection을 거치는 경로는
-residual activation에 대해 선형이다. 회로 분석이 QK와 OV 경로를 분리하는 이유가
-여기에 있다.
+attention pattern $\mat{A}^{h}$는 input에 의존하며 softmax 때문에 비선형이다.
+그러나 특정 input에서 $\mat{A}^{h}$를 고정하면 value와 output projection을 거치는 경로는 residual activation에 대해 선형이다.
+회로 분석이 QK와 OV 경로를 분리하는 이유가 여기에 있다.
 
 \section{MLP update와 잔차 덧셈}
 
@@ -182,32 +172,28 @@ residual activation에 대해 선형이다. 회로 분석이 QK와 OV 경로를 
   \Delta\mat{X}_{\mathrm{mlp}}
   &=\mat{G}\mat{W}_{\mathrm{out}}+\vect{b}_{\mathrm{out}}
 \end{align}
-로 쓸 수 있다. 여기서
-$\mat{W}_{\mathrm{in}}\in\R^{d\times d_{\mathrm{ff}}}$,
-$\mat{W}_{\mathrm{out}}\in\R^{d_{\mathrm{ff}}\times d}$이며
-$\mat{G}$의 shape는 $\shape{B,T,d_{\mathrm{ff}}}$다. MLP 자체는 서로 다른 token
-position을 직접 섞지 않는다. position 사이의 통신은 attention에서 일어난다.
+로 쓸 수 있다.
+여기서 $\mat{W}_{\mathrm{in}}\in\R^{d\times d_{\mathrm{ff}}}$, $\mat{W}_{\mathrm{out}}\in\R^{d_{\mathrm{ff}}\times d}$이며 $\mat{G}$의 shape는 $\shape{B,T,d_{\mathrm{ff}}}$다.
+MLP 자체는 서로 다른 token position을 직접 섞지 않는다.
+position 사이의 통신은 attention에서 일어난다.
 \index{MLP@MLP}
 
-nonlinearity $\phi$가 없다면 두 행렬을 하나로 합칠 수 있다. 비선형함수 또는 gating이
-있기 때문에 MLP는 입력에 따라 서로 다른 중간 feature를 활성화하고 단일 선형사상보다
-풍부한 함수를 표현한다. 현대 모델의 SwiGLU는 두 input projection을 사용하는 gated
-형태이므로 이 기본식과 parameterization이 다르다.
+nonlinearity $\phi$가 없다면 두 행렬을 하나로 합칠 수 있다.
+비선형함수 또는 gating이 있기 때문에 MLP는 입력에 따라 서로 다른 중간 feature를 활성화하고 단일 선형사상보다 풍부한 함수를 표현한다.
+현대 모델의 SwiGLU는 두 input projection을 사용하는 gated 형태이므로 이 기본식과 parameterization이 다르다.
 
 한 sequential pre-norm block의 전체 residual update는
 \begin{align}
   \mat{U}&=\mat{X}+\Delta\mat{X}_{\mathrm{attn}},\\
   \mat{X}_{\mathrm{next}}&=\mat{U}+\Delta\mat{X}_{\mathrm{mlp}}
 \end{align}
-이다. 덧셈으로 인해 이전 residual state로 향하는 identity path가 항상 존재한다.
-다만 normalization과 이후 layer가 개별 update를 비선형적으로 다시 읽으므로, 마지막
-logit에 대한 각 update의 총 효과를 단순히 독립적인 상수 기여로 볼 수는 없다.
+이다.
+덧셈으로 인해 이전 residual state로 향하는 identity path가 항상 존재한다.
+다만 normalization과 이후 layer가 개별 update를 비선형적으로 다시 읽으므로, 마지막 logit에 대한 각 update의 총 효과를 단순히 독립적인 상수 기여로 볼 수는 없다.
 
 \begin{factbox}
-``hidden state가 layer마다 완전히 교체된다''는 설명보다 ``attention과 MLP가 residual
-stream에 update를 더한다''는 설명이 residual architecture의 계산을 더 직접적으로
-반영한다. 그러나 normalization 위치와 parallel/sequential block 여부는 모델마다
-다르므로 실제 코드를 확인해야 한다.
+``hidden state가 layer마다 완전히 교체된다''는 설명보다 ``attention과 MLP가 residual stream에 update를 더한다''는 설명이 residual architecture의 계산을 더 직접적으로 반영한다.
+그러나 normalization 위치와 parallel/sequential block 여부는 모델마다 다르므로 실제 코드를 확인해야 한다.
 \end{factbox}
 
 \section{마지막 정규화, unembedding과 logits}
@@ -218,36 +204,35 @@ $\mat{H}\in\R^{B\times T\times d}$라고 두면
   \mat{Z}_{b,t,:}=\mat{H}_{b,t,:}\mat{W}_{U}^{\mathsf T}+\vect{b}_{U},
   \qquad \mat{W}_{U}\in\R^{V\times d}
 \end{equation}
-를 계산한다. $\mat{Z}$의 shape는 $\shape{B,T,V}$다. prompt 다음 token을 예측할 때는
-마지막 유효 position $T$의 logits를 사용한다. 훈련에서는 보통 모든 유효 position의
-logits를 동시에 계산하여 각 position의 다음 token loss를 구한다.
+를 계산한다.
+$\mat{Z}$의 shape는 $\shape{B,T,V}$다.
+prompt 다음 token을 예측할 때는 마지막 유효 position $T$의 logits를 사용한다.
+훈련에서는 보통 모든 유효 position의 logits를 동시에 계산하여 각 position의 다음 token loss를 구한다.
 
 token $v$의 logit은 row-vector 관례에서
 \begin{equation}
   z_v=\langle\vect{h}_{T},\vect{w}_{U,v}\rangle+b_{U,v}
 \end{equation}
-이다. residual update $\Delta\vect{h}$가 normalization을 거치지 않는 이상적인 선형
-경로에서 주는 direct logit contribution은
-$\langle\Delta\vect{h},\vect{w}_{U,v}\rangle$다. 실제 모델의 final normalization을
-무시하면 오차가 생길 수 있으므로 direct logit attribution의 정의를 명시해야 한다.
+이다.
+residual update $\Delta\vect{h}$가 normalization을 거치지 않는 이상적인 선형 경로에서 주는 direct logit contribution은 $\langle\Delta\vect{h},\vect{w}_{U,v}\rangle$다.
+실제 모델의 final normalization을 무시하면 오차가 생길 수 있으므로 direct logit attribution의 정의를 명시해야 한다.
 
 \begin{factbox}
-logit은 normalization 전의 score이며 확률이 아니다. softmax는 vocabulary의 모든
-logit을 함께 사용한다. 특정 token의 logit이 증가해도 다른 token의 logit이 더 많이
-증가하면 그 token의 확률은 감소할 수 있다.
+logit은 normalization 전의 score이며 확률이 아니다.
+softmax는 vocabulary의 모든 logit을 함께 사용한다.
+특정 token의 logit이 증가해도 다른 token의 logit이 더 많이 증가하면 그 token의 확률은 감소할 수 있다.
 \end{factbox}
 
 \section{autoregressive generation}
 
-한 번의 순전파가 분포 $p(x_{T+1}\mid x_{1:T})$를 만들면 decoder가 token
-$\hat{x}_{T+1}$을 선택한다. 대표적인 규칙은 다음과 같다.
+한 번의 순전파가 분포 $p(x_{T+1}\mid x_{1:T})$를 만들면 decoder가 token $\hat{x}_{T+1}$을 선택한다.
+대표적인 규칙은 다음과 같다.
 
 \begin{itemize}
   \item greedy decoding은 $\argmax_v z_v$를 선택한다.
   \item temperature sampling은 $\softmax(\vect{z}/\tau)$에서 표본을 뽑는다.
   \item top-$k$ sampling은 상위 $k$개 후보 밖의 질량을 제거하고 다시 정규화한다.
-  \item nucleus 또는 top-$p$ sampling은 누적 확률이 기준 $p$에 도달하는 최소 후보
-        집합을 선택한 뒤 다시 정규화한다 \citep{holtzman2020degeneration}.
+  \item nucleus 또는 top-$p$ sampling은 누적 확률이 기준 $p$에 도달하는 최소 후보 집합을 선택한 뒤 다시 정규화한다 \citep{holtzman2020degeneration}.
 \end{itemize}
 
 선택한 token을 sequence 뒤에 붙여 같은 조건부 예측을 반복한다.
@@ -255,18 +240,15 @@ $\hat{x}_{T+1}$을 선택한다. 대표적인 규칙은 다음과 같다.
   p(x_{T+1:T+n}\mid x_{1:T})
   =\prod_{r=1}^{n}p(x_{T+r}\mid x_{1:T+r-1}).
 \end{equation}
-따라서 한 응답은 단 한 번의 ``전체 문장 출력''이 아니라 token별 조건부 선택의
-연쇄다. greedy에서는 선택이 결정론적이지만, 앞 단계에서 선택한 token이 이후 모든
-조건부분포의 입력을 바꾸므로 초기 차이는 계속 전파될 수 있다.
+따라서 한 응답은 단 한 번의 ``전체 문장 출력''이 아니라 token별 조건부 선택의 연쇄다.
+greedy에서는 선택이 결정론적이지만, 앞 단계에서 선택한 token이 이후 모든 조건부분포의 입력을 바꾸므로 초기 차이는 계속 전파될 수 있다.
 
-구현에서 ``temperature 0''은 대개 0으로 나누어 softmax를 계산한다는 뜻이 아니라
-sampling을 끄고 argmax를 선택한다는 설정 이름이다.
+구현에서 ``temperature 0''은 대개 0으로 나누어 softmax를 계산한다는 뜻이 아니라 sampling을 끄고 argmax를 선택한다는 설정 이름이다.
 
 \section{완전한 shape 추적 예제}
 
 완전한 shape 추적은 token ID부터 next-token logits까지 각 축의 의미를 보존해야 한다.
-\Cref{tab:shape-trace}는 $B=1$, $T=8$, $d=4096$, $H=32$, $d_h=128$인 MHA block을
-가정하며, vocabulary와 MLP 크기는 예시로 각각 $128{,}256$, $14{,}336$을 사용한다.
+\Cref{tab:shape-trace}는 $B=1$, $T=8$, $d=4096$, $H=32$, $d_h=128$인 MHA block을 가정하며, vocabulary와 MLP 크기는 예시로 각각 $128{,}256$, $14{,}336$을 사용한다.
 
 \begin{table}[htbp]
 \centering
@@ -292,28 +274,23 @@ next-token logits & 마지막 position 선택 & $\shape{1,128256}$ \\
 \end{tabularx}
 \end{table}
 
-GQA 모델에서는 key와 value의 head 수가 query head 수보다 작으므로 위 key/value shape가
-달라진다. 이 차이는 \cref{chap:phase3}에서 정확히 전개한다.
+GQA 모델에서는 key와 value의 head 수가 query head 수보다 작으므로 위 key/value shape가 달라진다.
+이 차이는 \cref{chap:phase3}에서 정확히 전개한다.
 
 \section{Phase 2 학습 점검}
 
 \begin{studybox}
 \begin{enumerate}
-  \item 길이 3, head dimension 2인 causal attention의 score, mask, softmax와 value
-        가중합을 손으로 계산한다.
-  \item query의 position과 key/value의 position을 문장으로 설명하고 attention matrix의
-        행과 열을 표시한다.
+  \item 길이 3, head dimension 2인 causal attention의 score, mask, softmax와 value 가중합을 손으로 계산한다.
+  \item query의 position과 key/value의 position을 문장으로 설명하고 attention matrix의 행과 열을 표시한다.
   \item 한 head의 concatenation 표현을 head별 residual update의 합으로 바꿔 쓴다.
   \item pre-norm sequential block의 모든 중간 tensor shape를 적는다.
-  \item 마지막 residual update가 특정 token logit에 미치는 direct contribution을
-        unembedding vector와의 내적으로 계산한다.
-  \item greedy, temperature, top-$k$, top-$p$가 모델 순전파와 token 선택 중 어느 부분을
-        바꾸는지 구분한다.
+  \item 마지막 residual update가 특정 token logit에 미치는 direct contribution을 unembedding vector와의 내적으로 계산한다.
+  \item greedy, temperature, top-$k$, top-$p$가 모델 순전파와 token 선택 중 어느 부분을 바꾸는지 구분한다.
 \end{enumerate}
 \end{studybox}
 
 \begin{limitbox}
-이 장의 수식은 ``어떻게 계산되는가''에 완전한 답을 줄 수 있다. 그러나 특정 head가
-왜 Obama와 출생지의 관계를 처리하는지, MLP activation이 어떤 feature를 나타내는지,
-어느 경로가 Honolulu logit에 인과적으로 필요했는지는 수식만으로 정해지지 않는다.
+이 장의 수식은 ``어떻게 계산되는가''에 완전한 답을 줄 수 있다.
+그러나 특정 head가 왜 Obama와 출생지의 관계를 처리하는지, MLP activation이 어떤 feature를 나타내는지, 어느 경로가 Honolulu logit에 인과적으로 필요했는지는 수식만으로 정해지지 않는다.
 \end{limitbox}

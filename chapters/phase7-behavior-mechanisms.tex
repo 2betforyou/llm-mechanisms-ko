@@ -3,61 +3,47 @@
 
 \section{결론부터: 발견은 구체적이며 보편성은 미확립이다}
 
-현재 문헌은 자연 학습 LLM의 일부 행동에서 재현 가능한 내부 구조를 발견했지만, 그
-결과는 대체로 특정 모델, prompt distribution, token position과 metric에 한정된다.
-induction, IOI와 사실 회상은 중요한 실증 사례이지만 모든 자연어 처리에 공통인 하나의
-전역 알고리즘으로 합쳐지지 않았다.
+현재 문헌은 자연 학습 LLM의 일부 행동에서 재현 가능한 내부 구조를 발견했지만, 그 결과는 대체로 특정 모델, prompt distribution, token position과 metric에 한정된다.
+induction, IOI와 사실 회상은 중요한 실증 사례이지만 모든 자연어 처리에 공통인 하나의 전역 알고리즘으로 합쳐지지 않았다.
 
-행동별 연구를 읽을 때는 ``무엇을 발견했는가''와 ``어디까지 발견했는가''를 같은 문단에
-기록해야 한다. 이 장은 각 결과 뒤에 모델, 과제, 개입과 남은 대안을 붙이며, 사람에게
-익숙한 이야기만으로 빈 부분을 메우지 않는다.
+행동별 연구를 읽을 때는 ``무엇을 발견했는가''와 ``어디까지 발견했는가''를 같은 문단에 기록해야 한다.
+이 장은 각 결과 뒤에 모델, 과제, 개입과 남은 대안을 붙이며, 사람에게 익숙한 이야기만으로 빈 부분을 메우지 않는다.
 
 \section{factual recall}
 
-사실 회상 연구의 가장 통제된 형태는 subject--relation--attribute triple에서 다음 token을
-예측하는 과제다. 예를 들어
+사실 회상 연구의 가장 통제된 형태는 subject--relation--attribute triple에서 다음 token을 예측하는 과제다.
+예를 들어
 \begin{equation}
   (s,r,a)=(\text{Barack Obama},\text{place of birth},\text{Honolulu})
 \end{equation}
-를 ``Barack Obama was born in the city of''라는 prompt로 표현하고, 모델이 attribute의
-첫 token을 예측하게 한다. 이 설정은 open-ended generation보다 target logit과 token
-position을 명확히 정의한다.
+를 ``Barack Obama was born in the city of''라는 prompt로 표현하고, 모델이 attribute의 첫 token을 예측하게 한다.
+이 설정은 open-ended generation보다 target logit과 token position을 명확히 정의한다.
 \index{factual recall@사실 회상(factual recall)}
 
-이 과제의 정확성은 모델이 세계 사실을 추론하는 모든 방식을 포괄하지 않는다. attribute가
-여러 token이면 연구가 첫 token만 설명할 수 있고, prompt paraphrase나 여러 정답이 있는
-relation에서는 metric이 달라진다. 학습 corpus에 사실이 어떤 문맥과 빈도로 있었는지도
-대개 완전히 알 수 없다.
+이 과제의 정확성은 모델이 세계 사실을 추론하는 모든 방식을 포괄하지 않는다.
+attribute가 여러 token이면 연구가 첫 token만 설명할 수 있고, prompt paraphrase나 여러 정답이 있는 relation에서는 metric이 달라진다.
+학습 corpus에 사실이 어떤 문맥과 빈도로 있었는지도 대개 완전히 알 수 없다.
 
-ROME의 causal tracing은 GPT-2 계열에서 subject token을 처리하는 middle-layer MLP가
-factual prediction에 중요한 역할을 한다는 증거를 제시했고, rank-one weight update로
-선택한 factual association을 편집했다 \citep{meng2022rome}. 그러나 편집 가능성과 지식의
-유일한 저장 위치는 같은 명제가 아니다. 후속 분석은 localization 방법과 editing 성능이
-항상 일치하지 않는다고 보고했다 \citep{hase2023localization}.
+ROME의 causal tracing은 GPT-2 계열에서 subject token을 처리하는 middle-layer MLP가 factual prediction에 중요한 역할을 한다는 증거를 제시했고, rank-one weight update로 선택한 factual association을 편집했다 \citep{meng2022rome}.
+그러나 편집 가능성과 지식의 유일한 저장 위치는 같은 명제가 아니다.
+후속 분석은 localization 방법과 editing 성능이 항상 일치하지 않는다고 보고했다 \citep{hase2023localization}.
 
 \section{factual recall의 세 단계: 원 연구의 정확한 주장}
 
-Geva 등의 원 연구가 제안한 세 단계는 ``subject enrichment, relation propagation,
-attribute extraction''이다 \citep{geva2023recall}. 연구 대상은 정답 attribute를 다음
-token으로 예측한 GPT-2 XL 1.5B와 GPT-J 6B의 각각 약 1,200개 query이며, attention knockout,
-vocabulary projection과 component cancellation을 사용했다.
+Geva 등의 원 연구가 제안한 세 단계는 ``subject enrichment, relation propagation, attribute extraction''이다 \citep{geva2023recall}.
+연구 대상은 정답 attribute를 다음 token으로 예측한 GPT-2 XL 1.5B와 GPT-J 6B의 각각 약 1,200개 query이며, attention knockout, vocabulary projection과 component cancellation을 사용했다.
 
-첫 단계는 early MLP가 마지막 subject position의 표현을 여러 subject-related attribute로
-풍부하게 만든다는 결과다. 연구는 last-subject representation을 vocabulary에 투영한 상위
-token에서 Wikipedia로 구성한 subject attribute 집합의 비율을 측정했다. GPT-2에서 early
-MLP update를 취소하면 layer 40의 attribute rate가 평균 약 88\% 감소했고, MHSA update를
-취소한 경우에는 감소가 30\% 미만이었다고 보고했다.
+첫 단계는 early MLP가 마지막 subject position의 표현을 여러 subject-related attribute로 풍부하게 만든다는 결과다.
+연구는 last-subject representation을 vocabulary에 투영한 상위 token에서 Wikipedia로 구성한 subject attribute 집합의 비율을 측정했다.
+GPT-2에서 early MLP update를 취소하면 layer 40의 attribute rate가 평균 약 88\% 감소했고, MHSA update를 취소한 경우에는 감소가 30\% 미만이었다고 보고했다.
 
-둘째 단계는 relation 정보가 subject 정보보다 먼저 prediction position으로 전파된다는
-결과다. 연구는 last position이 non-subject position을 읽는 attention edge를 연속 layer
-window에서 막았을 때 나타나는 정답 확률 변화를 측정했다. 그 영향 peak가 subject-position
-edge를 막았을 때의 peak보다 먼저 나타났기 때문에 relation propagation으로 해석했다.
+둘째 단계는 relation 정보가 subject 정보보다 먼저 prediction position으로 전파된다는 결과다.
+연구는 last position이 non-subject position을 읽는 attention edge를 연속 layer window에서 막았을 때 나타나는 정답 확률 변화를 측정했다.
+그 영향 peak가 subject-position edge를 막았을 때의 peak보다 먼저 나타났기 때문에 relation propagation으로 해석했다.
 
-셋째 단계는 upper-layer MHSA가 relation을 담은 prediction representation으로 enriched
-subject를 조회하여 target attribute를 추출한다는 결과다. 연구는 last position이 subject
-position을 읽는 attention을 분석하고, 일부 head의 parameter가 subject--attribute mapping을
-지원한다고 보고했다. 저자들은 조사한 prediction의 약 70\%에서 이 extraction behavior를
-관찰했다고 명시했다.
+셋째 단계는 upper-layer MHSA가 relation을 담은 prediction representation으로 enriched subject를 조회하여 target attribute를 추출한다는 결과다.
+연구는 last position이 subject position을 읽는 attention을 분석하고, 일부 head의 parameter가 subject--attribute mapping을 지원한다고 보고했다.
+저자들은 조사한 prediction의 약 70\%에서 이 extraction behavior를 관찰했다고 명시했다.
 
 \begin{figure}[htbp]
 \centering
@@ -77,202 +63,151 @@ position을 읽는 attention을 분석하고, 일부 head의 parameter가 subjec
 \label{fig:geva-three-stages}
 \end{figure}
 
-이 세 단계는 software의 세 개 함수처럼 완전히 분리된 시간 구간이 아니다. layer window별
-개입 효과와 projection 결과를 세 가지 기능으로 요약한 경험적 메커니즘이며, 여러 component의
-계산은 겹칠 수 있다. ``모델이 먼저 모든 속성을 명시적 목록으로 만들고 다음에 데이터베이스
-검색을 실행한다''는 literal한 절차도 아니다.
+이 세 단계는 software의 세 개 함수처럼 완전히 분리된 시간 구간이 아니다.
+layer window별 개입 효과와 projection 결과를 세 가지 기능으로 요약한 경험적 메커니즘이며, 여러 component의 계산은 겹칠 수 있다.
+``모델이 먼저 모든 속성을 명시적 목록으로 만들고 다음에 데이터베이스 검색을 실행한다''는 literal한 절차도 아니다.
 
 \subsection{2510.09033의 Section 3.3은 무엇을 다시 정의하는가}
 
-Cheang 등은 원 연구의 세 단계를 hallucination 분류를 위한 세 intervention component로
-다시 기술한다 \citep{cheang2026knowledge}. 그 논문의 표현은 early-layer subject
-enrichment, middle-layer subject-to-last attention flow, upper-layer last-token decoding이다.
-특히 둘째 항목을 ``subject information propagation''으로 부르므로, Geva 원 연구의
-``relation information이 먼저 last position으로 전파된다''는 둘째 단계와 문구가 완전히
-같지 않다.
+Cheang 등은 원 연구의 세 단계를 hallucination 분류를 위한 세 intervention component로 다시 기술한다 \citep{cheang2026knowledge}.
+그 논문의 표현은 early-layer subject enrichment, middle-layer subject-to-last attention flow, upper-layer last-token decoding이다.
+특히 둘째 항목을 ``subject information propagation''으로 부르므로, Geva 원 연구의 ``relation information이 먼저 last position으로 전파된다''는 둘째 단계와 문구가 완전히 같지 않다.
 
-Section 3.3의 문장은 token 생성 algorithm을 새로 제안하는 부분이 아니라 label을 만드는
-근거를 설명하는 부분이다. 저자들은 오답을 낸 표본에서 last position이 subject token을
-읽는 attention을 막고, 원 출력분포와 개입 후 출력분포의 Jensen--Shannon divergence를
-계산한다. 이 값이 factual association 표본 전체의 평균보다 크면 associated hallucination,
-그렇지 않으면 unassociated hallucination으로 분류한다.
+Section 3.3의 문장은 token 생성 algorithm을 새로 제안하는 부분이 아니라 label을 만드는 근거를 설명하는 부분이다.
+저자들은 오답을 낸 표본에서 last position이 subject token을 읽는 attention을 막고, 원 출력분포와 개입 후 출력분포의 Jensen--Shannon divergence를 계산한다.
+이 값이 factual association 표본 전체의 평균보다 크면 associated hallucination, 그렇지 않으면 unassociated hallucination으로 분류한다.
 
 \begin{factbox}
-``세 단계를 거쳐 completion을 produce한다''는 말은 token 하나가 세 번 출력된다는 뜻이
-아니다. 한 번의 forward pass 안에서 서로 다른
-layer와 position의 activation이 subject를 풍부하게 만들고, 필요한 정보를 마지막
-position으로 전달하며, 최종 logit에서 attribute token을 높이는 기능적 분해를 뜻한다.
+``세 단계를 거쳐 completion을 produce한다''는 말은 token 하나가 세 번 출력된다는 뜻이 아니다.
+한 번의 forward pass 안에서 서로 다른 layer와 position의 activation이 subject를 풍부하게 만들고, 필요한 정보를 마지막 position으로 전달하며, 최종 logit에서 attribute token을 높이는 기능적 분해를 뜻한다.
 \end{factbox}
 
 \begin{limitbox}
-2510.09033의 FA/AH/UH는 intervention과 threshold로 만든 조작적 범주다. 모든 hallucination이
-자연적으로 이 세 ontological class 중 하나를 가진다는 증명은 아니다. 특히 AH/UH label이
-subject-reliance intervention으로 정의되므로, 그 뒤의 subject-flow 차이는 독립적인 진실성
-label만 분석한 결과로 읽어서는 안 된다.
+2510.09033의 FA/AH/UH는 intervention과 threshold로 만든 조작적 범주다.
+모든 hallucination이 자연적으로 이 세 ontological class 중 하나를 가진다는 증명은 아니다.
+특히 AH/UH label이 subject-reliance intervention으로 정의되므로, 그 뒤의 subject-flow 차이는 독립적인 진실성 label만 분석한 결과로 읽어서는 안 된다.
 \end{limitbox}
 
 \section{hallucination과 내부 상태}
 
-Cheang 등의 핵심 결과는 조사한 두 모델에서 associated hallucination의 내부 상태가
-factual association과 더 비슷하고, unassociated hallucination이 더 쉽게 분리되었다는
-것이다 \citep{cheang2026knowledge}. 분석에는 Meta-Llama-3-8B와 Mistral-7B-v0.3을 사용했고,
-각 모델에서 12,293개 factual query를 분류했다.
+Cheang 등의 핵심 결과는 조사한 두 모델에서 associated hallucination의 내부 상태가 factual association과 더 비슷하고, unassociated hallucination이 더 쉽게 분리되었다는 것이다 \citep{cheang2026knowledge}.
+분석에는 Meta-Llama-3-8B와 Mistral-7B-v0.3을 사용했고, 각 모델에서 12,293개 factual query를 분류했다.
 \index{hallucination@환각(hallucination)}
 
-분류 결과는 Llama에서 FA 3,506개, AH 1,406개, UH 7,381개였고, Mistral에서 각각
-3,354개, 1,284개, 7,655개였다. 저자들은 subject representation patching,
-subject-to-last attention blocking과 last-token representation patching 뒤의 output
-distribution JS divergence를 layer별로 비교했다. 이 표본에서 FA와 AH의 intervention
-pattern은 유사했고 UH는 다른 pattern을 보였다.
+분류 결과는 Llama에서 FA 3,506개, AH 1,406개, UH 7,381개였고, Mistral에서 각각 3,354개, 1,284개, 7,655개였다.
+저자들은 subject representation patching, subject-to-last attention blocking과 last-token representation patching 뒤의 output distribution JS divergence를 layer별로 비교했다.
+이 표본에서 FA와 AH의 intervention pattern은 유사했고 UH는 다른 pattern을 보였다.
 
-내부 표현 probe도 같은 범위에서 AH보다 UH를 더 잘 검출했다. 예를 들어 Llama의
-last-token representation probe AUROC는 AH-only에서 $0.69\pm0.03$, UH-only에서
-$0.93\pm0.01$이었으며, Mistral에서는 각각 $0.63\pm0.02$와 $0.92\pm0.01$이었다. 이
-수치는 모든 hallucination detector의 성능 상한이 아니라 논문이 정한 dataset, split,
-feature와 label에서의 결과다.
+내부 표현 probe도 같은 범위에서 AH보다 UH를 더 잘 검출했다.
+예를 들어 Llama의 last-token representation probe AUROC는 AH-only에서 $0.69\pm0.03$, UH-only에서 $0.93\pm0.01$이었으며, Mistral에서는 각각 $0.63\pm0.02$와 $0.92\pm0.01$이었다.
+이 수치는 모든 hallucination detector의 성능 상한이 아니라 논문이 정한 dataset, split, feature와 label에서의 결과다.
 
-이 연구가 지지하는 제한된 해석은 내부 signal이 진실성 자체보다 parametric association
-사용 여부를 더 강하게 반영할 수 있다는 것이다. AH는 강하지만 잘못된 association을
-통해 정답 회상과 비슷한 경로를 탈 수 있으므로, confidence나 hidden state만으로 참과
-거짓을 안정적으로 가르기 어렵다는 설명이다.
+이 연구가 지지하는 제한된 해석은 내부 signal이 진실성 자체보다 parametric association 사용 여부를 더 강하게 반영할 수 있다는 것이다.
+AH는 강하지만 잘못된 association을 통해 정답 회상과 비슷한 경로를 탈 수 있으므로, confidence나 hidden state만으로 참과 거짓을 안정적으로 가르기 어렵다는 설명이다.
 
 \begin{limitbox}
-probe 실패는 진실성 정보가 모델 내부 어디에도 존재하지 않는다는 증명이 아니다. 선택한
-layer, position, 선형 feature와 dataset에서 충분히 복원되지 않았다는 결과다. 반대로 UH
-검출 성공도 모델이 명시적인 ``나는 모른다'' 변수를 사용한다는 증명은 아니다.
+probe 실패는 진실성 정보가 모델 내부 어디에도 존재하지 않는다는 증명이 아니다.
+선택한 layer, position, 선형 feature와 dataset에서 충분히 복원되지 않았다는 결과다.
+반대로 UH 검출 성공도 모델이 명시적인 ``나는 모른다'' 변수를 사용한다는 증명은 아니다.
 \end{limitbox}
 
 \section{in-context learning과 copying}
 
-in-context learning(ICL)은 parameter update 없이 현재 context의 example이나 pattern에
-따라 다음-token behavior가 달라지는 현상이다. induction head는 반복 pattern의 복사라는
-한 메커니즘을 제공하며, 소형 attention-only 모델에서는 인과적으로 자세히 분석되었다
-\citep{olsson2022induction}.
+in-context learning(ICL)은 parameter update 없이 현재 context의 example이나 pattern에 따라 다음-token behavior가 달라지는 현상이다.
+induction head는 반복 pattern의 복사라는 한 메커니즘을 제공하며, 소형 attention-only 모델에서는 인과적으로 자세히 분석되었다 \citep{olsson2022induction}.
 
-일부 이론·실험 연구는 Transformer가 context 안의 linear regression example에서 gradient
-descent와 유사한 update를 구현할 수 있음을 보였다 \citep{vonoswald2023icl,akyurek2023icl}.
+일부 이론·실험 연구는 Transformer가 context 안의 linear regression example에서 gradient descent와 유사한 update를 구현할 수 있음을 보였다 \citep{vonoswald2023icl,akyurek2023icl}.
 이 결과는 특정 synthetic regression task와 architecture에서 입출력 함수를 분석한 것이다.
-자연어 ICL 전체가 실제 parameter gradient descent를 문자 그대로 실행한다는 결론은
-아니다.
+자연어 ICL 전체가 실제 parameter gradient descent를 문자 그대로 실행한다는 결론은 아니다.
 
-copying도 단일 기능이 아니다. token을 그대로 반복하는 회로, 앞 token 다음의 token을
-복사하는 induction, 이름 후보를 prediction position으로 옮기는 name mover와 긴 span을
-재생하는 행동은 서로 다른 QK 조건과 OV 내용을 가질 수 있다. ``attention은 복사한다''는
-문장은 source selection, value transformation과 target logit 효과를 분해해야 검증 가능하다.
+copying도 단일 기능이 아니다.
+token을 그대로 반복하는 회로, 앞 token 다음의 token을 복사하는 induction, 이름 후보를 prediction position으로 옮기는 name mover와 긴 span을 재생하는 행동은 서로 다른 QK 조건과 OV 내용을 가질 수 있다.
+``attention은 복사한다''는 문장은 source selection, value transformation과 target logit 효과를 분해해야 검증 가능하다.
 
 \section{reasoning과 chain-of-thought}
 
-chain-of-thought(CoT)는 모델이 중간 자연어 단계를 출력하도록 prompting하는 외부 생성
-형식이다. Wei 등은 충분히 큰 모델의 여러 arithmetic, commonsense와 symbolic reasoning
-benchmark에서 few-shot CoT prompt가 standard prompting보다 성능을 높인 결과를 보고했다
-\citep{wei2022cot}. 이 결과는 출력된 문장이 내부 계산의 완전한 transcript임을 보이지 않는다.
+chain-of-thought(CoT)는 모델이 중간 자연어 단계를 출력하도록 prompting하는 외부 생성 형식이다.
+Wei 등은 충분히 큰 모델의 여러 arithmetic, commonsense와 symbolic reasoning benchmark에서 few-shot CoT prompt가 standard prompting보다 성능을 높인 결과를 보고했다 \citep{wei2022cot}.
+이 결과는 출력된 문장이 내부 계산의 완전한 transcript임을 보이지 않는다.
 \index{chain-of-thought@사고 연쇄(chain-of-thought)}
 
-CoT의 비충실성은 입력의 biasing feature가 답을 바꾸면서도 생성된 explanation에는 그
-영향이 언급되지 않는 실험으로 관찰되었다 \citep{turpin2023unfaithful}. 따라서 ``모델이
-이유를 말했으므로 실제로 그 이유로 답했다''는 추론은 성립하지 않는다. CoT는 행동 데이터이자
-추가 계산을 유도하는 scratchpad가 될 수 있지만, 내부 메커니즘의 ground truth label은 아니다.
+CoT의 비충실성은 입력의 biasing feature가 답을 바꾸면서도 생성된 explanation에는 그 영향이 언급되지 않는 실험으로 관찰되었다 \citep{turpin2023unfaithful}.
+따라서 ``모델이 이유를 말했으므로 실제로 그 이유로 답했다''는 추론은 성립하지 않는다.
+CoT는 행동 데이터이자 추가 계산을 유도하는 scratchpad가 될 수 있지만, 내부 메커니즘의 ground truth label은 아니다.
 
 내부 reasoning 메커니즘을 주장하려면 중간 variable과 causal path를 별도로 시험해야 한다.
-예를 들어 두 단계 질의에서 중간 entity direction을 찾고 이를 교체했을 때 최종 answer가
-예측대로 바뀌는지 검사할 수 있다. 정답률 상승, probe와 intervention은 서로 다른 증거이므로
-하나의 ``reasoning 능력'' 점수로 합치지 않는다.
+예를 들어 두 단계 질의에서 중간 entity direction을 찾고 이를 교체했을 때 최종 answer가 예측대로 바뀌는지 검사할 수 있다.
+정답률 상승, probe와 intervention은 서로 다른 증거이므로 하나의 ``reasoning 능력'' 점수로 합치지 않는다.
 
 \section{entity tracking, planning과 refusal}
 
-entity tracking은 같은 이름이나 대상을 문맥의 여러 position에서 구분하고 해당 정보를
-prediction position에 유지하는 계산을 요구한다. IOI 회로는 duplicate token과 이름
-억제, name-moving head가 협력하는 한 구체적 사례를 제공하지만, 임의 길이 대화의 모든
-entity state를 설명하지는 않는다 \citep{wang2022ioi}.
+entity tracking은 같은 이름이나 대상을 문맥의 여러 position에서 구분하고 해당 정보를 prediction position에 유지하는 계산을 요구한다.
+IOI 회로는 duplicate token과 이름 억제, name-moving head가 협력하는 한 구체적 사례를 제공하지만, 임의 길이 대화의 모든 entity state를 설명하지는 않는다 \citep{wang2022ioi}.
 
-2025년 Anthropic의 attribution-graph 사례 연구는 Claude 3.5 Haiku에서 multi-hop reasoning,
-시의 운율 단어를 미리 고르는 planning, familiar entity와 unfamiliar entity의 구분,
-harmful request와 refusal에 관한 feature 경로를 보고했다 \citep{lindsey2025biology}. 저자들은
-feature direction 개입과 후속 perturbation으로 선택한 그래프 가설을 검증했다.
+2025년 Anthropic의 attribution-graph 사례 연구는 Claude 3.5 Haiku에서 multi-hop reasoning, 시의 운율 단어를 미리 고르는 planning, familiar entity와 unfamiliar entity의 구분, harmful request와 refusal에 관한 feature 경로를 보고했다 \citep{lindsey2025biology}.
+저자들은 feature direction 개입과 후속 perturbation으로 선택한 그래프 가설을 검증했다.
 
-이 결과는 frontier production model 내부에서 사람이 해석할 수 있는 중간 계산이 존재할
-수 있다는 existence proof다. 그러나 저자들은 만족스러운 insight를 얻은 prompt가 시도한
-prompt의 약 4분의 1이었고, 성공 사례에서도 모델 메커니즘의 작은 일부만 포착했으며,
-선정한 사례가 도구의 한계에 의해 편향되었다고 명시했다.
+이 결과는 frontier production model 내부에서 사람이 해석할 수 있는 중간 계산이 존재할 수 있다는 existence proof다.
+그러나 저자들은 만족스러운 insight를 얻은 prompt가 시도한 prompt의 약 4분의 1이었고, 성공 사례에서도 모델 메커니즘의 작은 일부만 포착했으며, 선정한 사례가 도구의 한계에 의해 편향되었다고 명시했다.
 
 거절에 관한 feature가 발견되었다고 모델의 안전 정책 전체가 한 방향에 저장된 것은 아니다.
-pretraining과 post-training feature의 상호작용, prompt-specific graph와 여러 competing
-path가 존재할 수 있다. 발견된 방향을 steering했을 때 behavior가 바뀌는 결과도 원래
-입력에서 그 방향이 모든 거절을 충분히 설명한다는 주장과 구분해야 한다.
+pretraining과 post-training feature의 상호작용, prompt-specific graph와 여러 competing path가 존재할 수 있다.
+발견된 방향을 steering했을 때 behavior가 바뀌는 결과도 원래 입력에서 그 방향이 모든 거절을 충분히 설명한다는 주장과 구분해야 한다.
 
 \section{대형 모델의 attribution graph}
 
-attribution graph 방법은 원 모델 자체를 곧바로 완전히 분해하지 않고, MLP를 더 해석하기
-쉬운 cross-layer transcoder(CLT)로 바꾼 replacement model을 사용한다
-\citep{ameisen2025circuittracing}. CLT feature는 한 layer의 residual stream을 읽고 현재와
-뒤 MLP layer의 출력을 재구성하며, sparsity penalty와 reconstruction loss로 학습된다.
+attribution graph 방법은 원 모델 자체를 곧바로 완전히 분해하지 않고, MLP를 더 해석하기 쉬운 cross-layer transcoder(CLT)로 바꾼 replacement model을 사용한다 \citep{ameisen2025circuittracing}.
+CLT feature는 한 layer의 residual stream을 읽고 현재와 뒤 MLP layer의 출력을 재구성하며, sparsity penalty와 reconstruction loss로 학습된다.
 \index{attribution graph@기여도 그래프(attribution graph)}
 
-local replacement model은 한 prompt에서 원 attention pattern과 normalization denominator를
-고정하고 CLT reconstruction error를 더하여 원 activation과 logit을 일치시킨다. 이 조정은
-그 prompt의 forward value를 맞추지만, perturbation에 대한 반응까지 원 모델과 같다는
-보장은 없다. 저자들은 이 차이를 mechanistic faithfulness로 따로 평가한다.
+local replacement model은 한 prompt에서 원 attention pattern과 normalization denominator를 고정하고 CLT reconstruction error를 더하여 원 activation과 logit을 일치시킨다.
+이 조정은 그 prompt의 forward value를 맞추지만, perturbation에 대한 반응까지 원 모델과 같다는 보장은 없다.
+저자들은 이 차이를 mechanistic faithfulness로 따로 평가한다.
 
 attribution graph의 edge는 고정된 비선형 조건 아래 feature 사이의 선형 효과를 나타낸다.
-graph에는 token embedding, 활성 feature, error node와 output logit이 들어가며, 출력에 대한
-기여가 작은 node와 edge를 pruning한다. 이 구조는 한 prompt를 읽기 쉬운 graph로 줄이지만,
-pruning threshold 아래의 다수 경로와 attention pattern을 만든 QK 메커니즘을 놓칠 수 있다.
+graph에는 token embedding, 활성 feature, error node와 output logit이 들어가며, 출력에 대한 기여가 작은 node와 edge를 pruning한다.
+이 구조는 한 prompt를 읽기 쉬운 graph로 줄이지만, pruning threshold 아래의 다수 경로와 attention pattern을 만든 QK 메커니즘을 놓칠 수 있다.
 
-replacement model의 근사 오차는 현재 방법의 핵심 한계다. methods paper에서 가장 큰
-18-layer CLT replacement model은 선택된 pretraining-style prompt 집합의 약 50\%에서 원
-모델과 같은 top next token을 냈다. local error correction으로 한 prompt의 수치를 맞춰도
-동일한 내부 메커니즘을 사용한다는 결과가 자동으로 따라오지 않는다.
+replacement model의 근사 오차는 현재 방법의 핵심 한계다.
+methods paper에서 가장 큰 18-layer CLT replacement model은 선택된 pretraining-style prompt 집합의 약 50\%에서 원 모델과 같은 top next token을 냈다.
+local error correction으로 한 prompt의 수치를 맞춰도 동일한 내부 메커니즘을 사용한다는 결과가 자동으로 따라오지 않는다.
 
 \begin{interpretbox}{현재 attribution graph의 올바른 지위}
-attribution graph는 원 모델에 대한 구체적이고 검증 가능한 메커니즘 가설을 생성하는
-강력한 현미경이다. 그것은 원 모델의 모든 계산을 손실 없이 사람이 읽을 수 있는 graph로
-변환한 완전한 해부도가 아니다.
+attribution graph는 원 모델에 대한 구체적이고 검증 가능한 메커니즘 가설을 생성하는 강력한 현미경이다.
+그것은 원 모델의 모든 계산을 손실 없이 사람이 읽을 수 있는 graph로 변환한 완전한 해부도가 아니다.
 \end{interpretbox}
 
 \section{모델 간 일반화 문제}
 
-같은 decoder-only Transformer 계열도 factual recall의 중요한 구성요소가 같다고 가정할
-수 없다. Choe 등은 GPT, Llama, Qwen과 DeepSeek 계열을 비교하고, 조사한 Qwen-based
-모델에서는 이전 GPT-style pattern과 달리 earliest layer attention module의 기여가 MLP보다
-크다는 결과를 보고했다 \citep{choe2025crossarchitecture}.
+같은 decoder-only Transformer 계열도 factual recall의 중요한 구성요소가 같다고 가정할 수 없다.
+Choe 등은 GPT, Llama, Qwen과 DeepSeek 계열을 비교하고, 조사한 Qwen-based 모델에서는 이전 GPT-style pattern과 달리 earliest layer attention module의 기여가 MLP보다 크다는 결과를 보고했다 \citep{choe2025crossarchitecture}.
 
-모델 간 차이는 architecture 이름 하나로 설명되지 않는다. normalization, GQA, tokenizer와
-block 배치뿐 아니라 학습 데이터, objective와 seed가 다르다. 같은 기능을 다른 parameter
-경로가 구현할 수도 있고, 표면적으로 비슷한 head가 다른 representation basis를 사용할 수도
-있다.
+모델 간 차이는 architecture 이름 하나로 설명되지 않는다.
+normalization, GQA, tokenizer와 block 배치뿐 아니라 학습 데이터, objective와 seed가 다르다.
+같은 기능을 다른 parameter 경로가 구현할 수도 있고, 표면적으로 비슷한 head가 다른 representation basis를 사용할 수도 있다.
 
-일반화를 주장하려면 여러 수준을 분리해 측정해야 한다. behavioral generalization은 같은
-정답을 내는지 묻고, representational generalization은 alignment 뒤 유사한 feature가 있는지
-묻고, mechanistic generalization은 같은 causal dependency가 intervention으로 유지되는지
-묻는다. 첫째가 같아도 둘째와 셋째가 자동으로 같아지지 않는다.
+일반화를 주장하려면 여러 수준을 분리해 측정해야 한다.
+behavioral generalization은 같은 정답을 내는지 묻고, representational generalization은 alignment 뒤 유사한 feature가 있는지 묻고, mechanistic generalization은 같은 causal dependency가 intervention으로 유지되는지 묻는다.
+첫째가 같아도 둘째와 셋째가 자동으로 같아지지 않는다.
 
 2026년의 LM-agent 기반 circuit explanation 연구도 자동 설명의 범위를 명확히 보여준다.
-HyVE는 84개 semi-synthetic Transformer circuit과 163개 component annotation으로 만든
-benchmark에서 관찰, 가설, causal validation을 반복했고, Llama-3-8B arithmetic case study도
-제시했다. 그러나 어떤 backbone도 일관되게 최선이 아니었고 validation 단계의 실패가 주요
-장애로 남았다고 보고했다 \citep{khan2026agents}.
+HyVE는 84개 semi-synthetic Transformer circuit과 163개 component annotation으로 만든 benchmark에서 관찰, 가설, causal validation을 반복했고, Llama-3-8B arithmetic case study도 제시했다.
+그러나 어떤 backbone도 일관되게 최선이 아니었고 validation 단계의 실패가 주요 장애로 남았다고 보고했다 \citep{khan2026agents}.
 
 \section{Phase 7 학습 점검}
 
 \begin{studybox}
 \begin{enumerate}
-  \item Geva et al. (2023)의 세 단계 각각에 대해 model, position, layer 범위, intervention,
-        metric과 수치를 원문 표로 복원한다.
-  \item 2510.09033의 FA/AH/UH labeling code를 재현하고 JS threshold가 바뀔 때 표본 구성이
-        얼마나 달라지는지 sensitivity curve를 그린다.
-  \item factual recall 결과를 paraphrase, multi-token attribute와 다른 checkpoint에서
-        반복하고 실패 사례를 별도 표로 기록한다.
-  \item CoT 문장과 내부 causal variable이 일치하는지 answer-preserving, rationale-changing
-        counterfactual로 시험한다.
-  \item attribution graph의 reconstruction error node, pruning threshold와 perturbation
-        validation을 함께 보고한다.
-  \item behavior, representation과 mechanism의 모델 간 일반화를 각각 다른 metric으로
-        평가한다.
+  \item Geva et al. (2023)의 세 단계 각각에 대해 model, position, layer 범위, intervention, metric과 수치를 원문 표로 복원한다.
+  \item 2510.09033의 FA/AH/UH labeling code를 재현하고 JS threshold가 바뀔 때 표본 구성이 얼마나 달라지는지 sensitivity curve를 그린다.
+  \item factual recall 결과를 paraphrase, multi-token attribute와 다른 checkpoint에서 반복하고 실패 사례를 별도 표로 기록한다.
+  \item CoT 문장과 내부 causal variable이 일치하는지 answer-preserving, rationale-changing counterfactual로 시험한다.
+  \item attribution graph의 reconstruction error node, pruning threshold와 perturbation validation을 함께 보고한다.
+  \item behavior, representation과 mechanism의 모델 간 일반화를 각각 다른 metric으로 평가한다.
 \end{enumerate}
 \end{studybox}
 
 \begin{factbox}
-Phase 7의 종료 조건은 유명한 회로 이름을 암기하는 것이 아니다. 각 논문의 결론을 원
-실험 범위로 되돌리고, 관찰된 단계와 연구자가 붙인 해석을 구분하며, 새로운 모델에서
-무엇을 다시 검증해야 하는지 설계할 수 있어야 한다.
+Phase 7의 종료 조건은 유명한 회로 이름을 암기하는 것이 아니다.
+각 논문의 결론을 원 실험 범위로 되돌리고, 관찰된 단계와 연구자가 붙인 해석을 구분하며, 새로운 모델에서 무엇을 다시 검증해야 하는지 설계할 수 있어야 한다.
 \end{factbox}

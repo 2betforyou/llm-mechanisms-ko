@@ -3,8 +3,8 @@
 
 \section{감사표의 목적}
 
-주장--증거 감사표는 핵심 문장이 인용 범위를 넘어가는 일을 막는다. 각 행은 책의 요약
-주장, 증거 종류, 적용 범위와 결론을 바꿀 수 있는 조건을 함께 기록한다.
+주장--증거 감사표는 핵심 문장이 인용 범위를 넘어가는 일을 막는다.
+각 행은 책의 요약 주장, 증거 종류, 적용 범위와 결론을 바꿀 수 있는 조건을 함께 기록한다.
 
 \small
 \begin{longtable}{@{}p{0.06\textwidth}p{0.31\textwidth}p{0.20\textwidth}p{0.31\textwidth}@{}}
@@ -70,16 +70,14 @@ C24 & CoT는 내부 계산의 충실한 transcript로 가정할 수 없다. & bi
 
 \section{갱신 절차}
 
-새 근거는 기존 행을 삭제하기보다 version history와 함께 갱신한다. 결과가 재현되지 않으면
-모델·데이터·구현 차이인지 원 결론의 불안정성인지 구분하고, 범위 열을 먼저 좁힌다.
+새 근거는 기존 행을 삭제하기보다 version history와 함께 갱신한다.
+결과가 재현되지 않으면 모델·데이터·구현 차이인지 원 결론의 불안정성인지 구분하고, 범위 열을 먼저 좁힌다.
 
-주장의 등급은 근거가 강해질 때만 올린다. probe에서 intervention으로, 단일 prompt에서
-held-out distribution으로, 단일 model에서 architecture transfer로 증거가 확장되면 해당
-범위를 명시한다. 반대 결과가 나오면 평균적인 결론 속에 숨기지 않고 별도 행이나 예외로
-기록한다.
+주장의 등급은 근거가 강해질 때만 올린다.
+probe에서 intervention으로, 단일 prompt에서 held-out distribution으로, 단일 model에서 architecture transfer로 증거가 확장되면 해당 범위를 명시한다.
+반대 결과가 나오면 평균적인 결론 속에 숨기지 않고 별도 행이나 예외로 기록한다.
 
 \begin{studybox}
-책의 새 판을 만들기 전에는 본문의 모든 \verb|\citep|와 \verb|\citet|가 감사표 또는
-비핵심 배경 주장으로 분류되는지 검사한다. C22처럼 부재를 주장하는 문장은 최신 문헌 검색과
-주요 방법 논문의 limitation을 다시 확인한 뒤 날짜를 갱신한다.
+책의 새 판을 만들기 전에는 본문의 모든 \verb|\citep|와 \verb|\citet|가 감사표 또는 비핵심 배경 주장으로 분류되는지 검사한다.
+C22처럼 부재를 주장하는 문장은 최신 문헌 검색과 주요 방법 논문의 limitation을 다시 확인한 뒤 날짜를 갱신한다.
 \end{studybox}

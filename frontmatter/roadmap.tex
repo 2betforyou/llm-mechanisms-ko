@@ -2,9 +2,8 @@
 \addcontentsline{toc}{chapter}{Phase 1--7 학습 지도}
 
 \begin{factbox}
-학습 순서는 ``텐서를 계산할 수 있음''에서 ``내부 알고리즘 가설을 인과적으로 시험할
-수 있음''으로 진행한다. 뒤 Phase의 용어를 먼저 외우는 대신, 앞 Phase의 산출물을
-다음 Phase의 측정 도구로 사용한다.
+학습 순서는 ``텐서를 계산할 수 있음''에서 ``내부 알고리즘 가설을 인과적으로 시험할 수 있음''으로 진행한다.
+뒤 Phase의 용어를 먼저 외우는 대신, 앞 Phase의 산출물을 다음 Phase의 측정 도구로 사용한다.
 \end{factbox}
 
 \begin{longtable}{@{}p{0.10\textwidth}p{0.32\textwidth}p{0.48\textwidth}@{}}
@@ -50,9 +49,8 @@ class TransformerBlock
 class CausalLM
 \end{lstlisting}
 
-프로젝트 A의 통과 기준은 각 원소가 왜 그 값을 갖는지 설명할 수 있는가이다. 이를
-검증하려면 각 연산에서 batch, sequence, head, feature 축을 출력하고, 작은 입력에서는
-수작업 계산과 일치하는 unit test를 작성해야 한다.
+프로젝트 A의 통과 기준은 각 원소가 왜 그 값을 갖는지 설명할 수 있는가이다.
+이를 검증하려면 각 연산에서 batch, sequence, head, feature 축을 출력하고, 작은 입력에서는 수작업 계산과 일치하는 unit test를 작성해야 한다.
 
 \subsection*{프로젝트 B: 회로 가설을 시험하기}
 
@@ -78,6 +76,5 @@ class CausalLM
   \item 이해한 내용, 반례, 열린 질문을 분리한 연구 기록.
 \end{itemize}
 
-이 책은 정답 모음이 아니라 이러한 산출물을 만들기 위한 기준 문서다. 최종 목표는
-논문의 용어를 알아보는 것이 아니라, 논문의 intervention이 실제로 어느 tensor를
-어떻게 바꾸며 그 결과가 어떤 인과 주장을 지지하는지 독립적으로 판단하는 것이다.
+이 책은 정답 모음이 아니라 이러한 산출물을 만들기 위한 기준 문서다.
+최종 목표는 논문의 용어를 알아보는 것이 아니라, 논문의 intervention이 실제로 어느 tensor를 어떻게 바꾸며 그 결과가 어떤 인과 주장을 지지하는지 독립적으로 판단하는 것이다.

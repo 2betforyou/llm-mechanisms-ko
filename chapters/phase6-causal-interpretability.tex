@@ -3,174 +3,156 @@
 
 \section{결론부터: 위치 찾기와 메커니즘 설명은 다르다}
 
-어떤 activation을 바꾸었을 때 출력이 달라지면 그 activation은 해당 개입과 metric 아래에서
-인과적으로 관련된다. 그러나 그것만으로 그 activation이 어떤 정보를 계산했는지, 어느
-upstream source에서 왔는지, 어떤 downstream path를 통해 사용되었는지는 알 수 없다.
+어떤 activation을 바꾸었을 때 출력이 달라지면 그 activation은 해당 개입과 metric 아래에서 인과적으로 관련된다.
+그러나 그것만으로 그 activation이 어떤 정보를 계산했는지, 어느 upstream source에서 왔는지, 어떤 downstream path를 통해 사용되었는지는 알 수 없다.
 localization은 메커니즘 연구의 시작점이지 종료점이 아니다.
 
-재현 가능한 개입에는 base input부터 aggregation까지 여섯 요소가 필요하다. 이 장에서는
-이를 다음 명세로 기록한다.
+재현 가능한 개입에는 base input부터 aggregation까지 여섯 요소가 필요하다.
+이 장에서는 이를 다음 명세로 기록한다.
 \begin{equation}
   \mathcal{I}=(\text{base input},\text{source input},\text{hook},
   \text{replacement},\text{metric},\text{aggregation}).
   \label{eq:intervention-spec}
 \end{equation}
-``layer 10을 patch했다''는 문장만으로는 residual input인지 output인지, 어느 position과
-feature인지, 무엇으로 교체했는지가 빠져 있어 재현할 수 없다.
+``layer 10을 patch했다''는 문장만으로는 residual input인지 output인지, 어느 position과 feature인지, 무엇으로 교체했는지가 빠져 있어 재현할 수 없다.
 
 \section{관찰, 상관과 개입}
 
-관찰 분포와 개입 분포는 서로 다른 질문에 답한다. 계산그래프에서 activation $H$와 출력
-$Y$가 함께 변할 때, 관찰 분포 $p(Y\mid H=h)$는 upstream 입력이 두 변수에 함께 영향을
-준 결과를 포함한다. 개입은 그래프의 해당 값을 외부에서 지정하고 나머지 downstream
-계산을 다시 실행하므로 개념적으로
+관찰 분포와 개입 분포는 서로 다른 질문에 답한다.
+계산그래프에서 activation $H$와 출력 $Y$가 함께 변할 때, 관찰 분포 $p(Y\mid H=h)$는 upstream 입력이 두 변수에 함께 영향을 준 결과를 포함한다.
+개입은 그래프의 해당 값을 외부에서 지정하고 나머지 downstream 계산을 다시 실행하므로 개념적으로
 \begin{equation}
   p(Y\mid \operatorname{do}(H\leftarrow h'))
 \end{equation}
 를 묻는 셈이다.
 
-신경망의 순전파 그래프는 관측 변수 사이의 일반적인 사회과학적 인과 문제보다 직접
-조작하기 쉽다. 다만 개입한 activation이 훈련 중 나타나지 않은 값이면 downstream
-module이 distribution 밖에서 작동한다. 따라서 인과 효과는 ``원래 모델이 자연스럽게
-그 상태를 만드는 과정''과 ``강제로 그 상태를 넣었을 때의 반응''을 구분하여 해석해야 한다.
+신경망의 순전파 그래프는 관측 변수 사이의 일반적인 사회과학적 인과 문제보다 직접 조작하기 쉽다.
+다만 개입한 activation이 훈련 중 나타나지 않은 값이면 downstream module이 distribution 밖에서 작동한다.
+따라서 인과 효과는 ``원래 모델이 자연스럽게 그 상태를 만드는 과정''과 ``강제로 그 상태를 넣었을 때의 반응''을 구분하여 해석해야 한다.
 
 \begin{factbox}
-activation intervention은 parameter를 다시 학습하지 않고 한 번의 실행에서 중간값을
-교체한다. weight editing은 이후 모든 입력에 쓰이는 함수를 바꾼다. 두 실험은 서로 다른
-인과 질문에 답한다.
+activation intervention은 parameter를 다시 학습하지 않고 한 번의 실행에서 중간값을 교체한다.
+weight editing은 이후 모든 입력에 쓰이는 함수를 바꾼다.
+두 실험은 서로 다른 인과 질문에 답한다.
 \end{factbox}
 
 \section{ablation}
 
-ablation은 구성요소의 정상 출력을 기준값으로 바꾸거나 특정 edge를 끊고 target metric을
-측정한다. component $c$의 정상 실행 metric을 $m_{\mathrm{full}}$, ablated 실행을
-$m_{-c}$라고 하면 단순 효과는
+ablation은 구성요소의 정상 출력을 기준값으로 바꾸거나 특정 edge를 끊고 target metric을 측정한다.
+component $c$의 정상 실행 metric을 $m_{\mathrm{full}}$, ablated 실행을 $m_{-c}$라고 하면 단순 효과는
 \begin{equation}
   \Delta_c=m_{\mathrm{full}}-m_{-c}
 \end{equation}
-로 쓸 수 있다. metric의 방향에 따라 부호 정의를 바꿔야 한다.
+로 쓸 수 있다.
+metric의 방향에 따라 부호 정의를 바꿔야 한다.
 \index{ablation@절제(ablation)}
 
 중요한 것은 ``제거''가 수학적으로 유일하지 않다는 점이다.
 
 \begin{description}[style=nextline,leftmargin=2em]
   \item[zero ablation]
-  activation을 0으로 바꾼다. 0이 해당 hook에서 자연스러운 baseline인지 확인해야 한다.
+  activation을 0으로 바꾼다.
+  0이 해당 hook에서 자연스러운 baseline인지 확인해야 한다.
 
   \item[mean ablation]
-  reference dataset의 평균 activation으로 바꾼다. 평균을 계산한 조건에 따라 다른 정보를
-  보존할 수 있다.
+  reference dataset의 평균 activation으로 바꾼다.
+  평균을 계산한 조건에 따라 다른 정보를 보존할 수 있다.
 
   \item[resample ablation]
-  다른 표본의 activation을 넣는다. marginal distribution은 더 잘 보존할 수 있지만
-  source 표본의 정보가 새로 들어간다.
+  다른 표본의 activation을 넣는다.
+  marginal distribution은 더 잘 보존할 수 있지만 source 표본의 정보가 새로 들어간다.
 
   \item[noise ablation]
-  선택한 noise 분포를 더하거나 대체한다. scale과 covariance가 결과를 결정한다.
+  선택한 noise 분포를 더하거나 대체한다.
+  scale과 covariance가 결과를 결정한다.
 \end{description}
 
-head output을 0으로 만드는 것과 attention score를 $-\infty$로 바꾸어 특정 source를
-막는 것은 다른 개입이다. 전자는 head의 모든 source contribution을 없애고, 후자는
-softmax가 나머지 source에 weight를 재분배한다.
+head output을 0으로 만드는 것과 attention score를 $-\infty$로 바꾸어 특정 source를 막는 것은 다른 개입이다.
+전자는 head의 모든 source contribution을 없애고, 후자는 softmax가 나머지 source에 weight를 재분배한다.
 
 \section{activation patching과 causal tracing}
 
-activation patching은 서로 다른 두 입력의 실행을 결합한다. clean input $x_c$에서는
-원하는 행동이 나타나고, corrupted input $x_r$에서는 그 행동이 약해진다고 하자. 먼저
-두 실행의 activation을 cache한다. 그다음 $x_r$을 실행하면서 선택한 hook $u$의 값을
-clean activation $h_u(x_c)$로 교체한다.
+activation patching은 서로 다른 두 입력의 실행을 결합한다.
+clean input $x_c$에서는 원하는 행동이 나타나고, corrupted input $x_r$에서는 그 행동이 약해진다고 하자.
+먼저 두 실행의 activation을 cache한다.
+그다음 $x_r$을 실행하면서 선택한 hook $u$의 값을 clean activation $h_u(x_c)$로 교체한다.
 \index{activation patching@활성값 패칭(activation patching)}
 
-patch recovery는 corrupted 실행이 clean activation의 이식으로 얼마나 회복되는지를
-정규화한다. metric $m$에 대해
+patch recovery는 corrupted 실행이 clean activation의 이식으로 얼마나 회복되는지를 정규화한다.
+metric $m$에 대해
 \begin{equation}
   R_u=\frac{m(x_r;h_u\leftarrow h_u(x_c))-m(x_r)}
   {m(x_c)-m(x_r)}
   \label{eq:patch-recovery}
 \end{equation}
-로 정의할 수 있다. 분모가 작으면 불안정하며, $R_u$는 0과 1 사이에 반드시 머물지 않는다.
-확률, logit, logit difference와 loss 가운데 무엇을 $m$으로 쓰는지에 따라 결과가 달라질
-수 있다 \citep{zhang2024activation,heimersheim2024patching}.
+로 정의할 수 있다.
+분모가 작으면 불안정하며, $R_u$는 0과 1 사이에 반드시 머물지 않는다.
+확률, logit, logit difference와 loss 가운데 무엇을 $m$으로 쓰는지에 따라 결과가 달라질 수 있다 \citep{zhang2024activation,heimersheim2024patching}.
 
-ROME 연구의 causal tracing은 factual prompt의 subject embedding에 noise를 넣어 prediction을
-손상시킨 뒤, 특정 layer와 position의 hidden activation을 clean 값으로 복원하여 사실
-예측이 얼마나 회복되는지 측정했다. 이 실험은 GPT 계열 모델에서 subject token을 처리하는
-middle-layer feed-forward computation의 역할을 지지했다 \citep{meng2022rome}.
+ROME 연구의 causal tracing은 factual prompt의 subject embedding에 noise를 넣어 prediction을 손상시킨 뒤, 특정 layer와 position의 hidden activation을 clean 값으로 복원하여 사실 예측이 얼마나 회복되는지 측정했다.
+이 실험은 GPT 계열 모델에서 subject token을 처리하는 middle-layer feed-forward computation의 역할을 지지했다 \citep{meng2022rome}.
 
 \begin{limitbox}
-patch가 큰 회복을 만들었다는 사실은 해당 hook이 clean과 corrupted 조건의 차이를 운반하는
-충분한 매개 지점임을 시사한다. 정보가 그 layer에서 처음 계산되었다거나 오직 그 위치에
-저장되었다는 사실까지 증명하지는 않는다. residual stream은 upstream 차이를 누적해서
-운반할 수 있다.
+patch가 큰 회복을 만들었다는 사실은 해당 hook이 clean과 corrupted 조건의 차이를 운반하는 충분한 매개 지점임을 시사한다.
+정보가 그 layer에서 처음 계산되었다거나 오직 그 위치에 저장되었다는 사실까지 증명하지는 않는다.
+residual stream은 upstream 차이를 누적해서 운반할 수 있다.
 \end{limitbox}
 
 \section{path patching과 edge intervention}
 
-node patching은 한 activation으로 들어오는 모든 upstream path를 함께 바꾼다. path 또는
-edge patching은 sender $s$의 clean/corrupted 차이가 특정 receiver $r$에 들어가는 경로만
-바꾸고, 다른 입력은 원 조건으로 유지하려고 한다. 예를 들어 head output이 뒤 head의
-key input으로 가는 edge만 교체하면 value와 query 경로를 분리해 시험할 수 있다.
+node patching은 한 activation으로 들어오는 모든 upstream path를 함께 바꾼다.
+path 또는 edge patching은 sender $s$의 clean/corrupted 차이가 특정 receiver $r$에 들어가는 경로만 바꾸고, 다른 입력은 원 조건으로 유지하려고 한다.
+예를 들어 head output이 뒤 head의 key input으로 가는 edge만 교체하면 value와 query 경로를 분리해 시험할 수 있다.
 \index{path patching@경로 패칭(path patching)}
 
-Transformer 구현에서는 residual stream에 여러 sender output이 더해진 뒤 receiver가 이를
-읽는다. 따라서 edge를 직접 저장한 tensor가 없을 수 있다. 연구자는 receiver input을
-sender별 기여로 재구성하거나 여러 차례 forward pass로 원하는 경로만 patch해야 한다.
+Transformer 구현에서는 residual stream에 여러 sender output이 더해진 뒤 receiver가 이를 읽는다.
+따라서 edge를 직접 저장한 tensor가 없을 수 있다.
+연구자는 receiver input을 sender별 기여로 재구성하거나 여러 차례 forward pass로 원하는 경로만 patch해야 한다.
 어떤 tensor decomposition을 사용했는지가 곧 edge의 정의다.
 
-path patching의 결과도 상호작용에 민감하다. 두 경로가 서로 대체 가능하면 각각을 따로
-끊을 때 효과가 작지만 함께 끊을 때 효과가 클 수 있다. 반대로 한 경로의 효과가 다른
-경로가 존재할 때만 나타날 수 있다. 따라서 single-edge effect를 단순히 합하여 전체
-효과를 얻을 수 있다고 가정하면 안 된다.
+path patching의 결과도 상호작용에 민감하다.
+두 경로가 서로 대체 가능하면 각각을 따로 끊을 때 효과가 작지만 함께 끊을 때 효과가 클 수 있다.
+반대로 한 경로의 효과가 다른 경로가 존재할 때만 나타날 수 있다.
+따라서 single-edge effect를 단순히 합하여 전체 효과를 얻을 수 있다고 가정하면 안 된다.
 
 \section{interchange intervention과 causal abstraction}
 
-interchange intervention은 source example에서 얻은 내부 상태를 base example의 계산에
-이식하여, 고수준 변수의 값을 바꾼 것과 같은 반사실 출력이 나오는지 검사한다. 고수준
-causal model의 변수 $Z$와 신경망 activation 집합 $H$ 사이에 alignment를 제안했다고 하자.
-source $s$의 $Z$ 값을 base $b$에 넣은 고수준 출력과, $H(s)$를 $b$의 신경망에 넣은 저수준
-출력이 일치하는지를 여러 pair에서 검사한다.
+interchange intervention은 source example에서 얻은 내부 상태를 base example의 계산에 이식하여, 고수준 변수의 값을 바꾼 것과 같은 반사실 출력이 나오는지 검사한다.
+고수준 causal model의 변수 $Z$와 신경망 activation 집합 $H$ 사이에 alignment를 제안했다고 하자.
+source $s$의 $Z$ 값을 base $b$에 넣은 고수준 출력과, $H(s)$를 $b$의 신경망에 넣은 저수준 출력이 일치하는지를 여러 pair에서 검사한다.
 \index{causal abstraction@인과 추상화(causal abstraction)}
 
-Geiger 등은 이 생각을 causal abstraction의 형식으로 정리하고, MQNLI를 위해 구성된
-자연논리 causal model의 일부 구조가 BERT 기반 모델에서 실현되는지를 interchange
-intervention으로 시험했다 \citep{geiger2021causal}. 이 방법의 강점은 ``이 neuron이
-negation을 뜻한다'' 같은 이름 붙이기를 넘어, 제안한 고수준 변수와 동일한 반사실 관계를
-만드는지 검증한다는 데 있다.
+Geiger 등은 이 생각을 causal abstraction의 형식으로 정리하고, MQNLI를 위해 구성된 자연논리 causal model의 일부 구조가 BERT 기반 모델에서 실현되는지를 interchange intervention으로 시험했다 \citep{geiger2021causal}.
+이 방법의 강점은 ``이 neuron이 negation을 뜻한다'' 같은 이름 붙이기를 넘어, 제안한 고수준 변수와 동일한 반사실 관계를 만드는지 검증한다는 데 있다.
 
-causal abstraction은 연구자가 먼저 고수준 causal model, 변수와 alignment 후보를 정해야
-한다는 한계가 있다. 시험을 통과하면 그 abstraction이 유효하다는 증거지만 유일한 abstraction이라는
-뜻은 아니다. 자연어 전반에 대한 올바른 고수준 변수를 자동으로 얻는 문제도 해결되지
-않는다.
+causal abstraction은 연구자가 먼저 고수준 causal model, 변수와 alignment 후보를 정해야 한다는 한계가 있다.
+시험을 통과하면 그 abstraction이 유효하다는 증거지만 유일한 abstraction이라는 뜻은 아니다.
+자연어 전반에 대한 올바른 고수준 변수를 자동으로 얻는 문제도 해결되지 않는다.
 
 \section{attribution과 gradient 근사}
 
-first-order attribution은 작은 activation 변화의 metric 효과를 gradient 내적으로
-근사한다. 미분 가능한 metric $m$과 activation $\vect{h}$에 대해 변화
-$\Delta\vect{h}$를 주면
+first-order attribution은 작은 activation 변화의 metric 효과를 gradient 내적으로 근사한다.
+미분 가능한 metric $m$과 activation $\vect{h}$에 대해 변화 $\Delta\vect{h}$를 주면
 \begin{equation}
   m(\vect{h}+\Delta\vect{h})-m(\vect{h})
   \approx \nabla_{\vect{h}}m^{\mathsf T}\Delta\vect{h}
   \label{eq:first-order-attribution}
 \end{equation}
-다. attribution patching은 clean과 corrupted activation 차이를 $\Delta\vect{h}$로 두어
-실제 patch를 반복하지 않고 많은 node나 edge의 효과를 근사한다.
+다.
+attribution patching은 clean과 corrupted activation 차이를 $\Delta\vect{h}$로 두어 실제 patch를 반복하지 않고 많은 node나 edge의 효과를 근사한다.
 
-Syed 등은 두 번의 forward pass와 한 번의 backward pass를 사용하는 이 선형 근사로
-edge importance를 계산하고, 조사한 benchmark에서 기존 자동 회로 발견법보다 평균적인
-circuit-recovery AUC가 높았다고 보고했다 \citep{syed2023eap}. 계산량 절감은 중요하지만
-근사가 큰 intervention, activation threshold와 상호작용을 정확히 포착한다는 보장은 없다.
+Syed 등은 두 번의 forward pass와 한 번의 backward pass를 사용하는 이 선형 근사로 edge importance를 계산하고, 조사한 benchmark에서 기존 자동 회로 발견법보다 평균적인 circuit-recovery AUC가 높았다고 보고했다 \citep{syed2023eap}.
+계산량 절감은 중요하지만 근사가 큰 intervention, activation threshold와 상호작용을 정확히 포착한다는 보장은 없다.
 
-gradient가 0에 가깝다고 구성요소가 불필요하다고 단정할 수도 없다. saturation, canceling
-path 또는 first-order에서 보이지 않는 곡률이 있을 수 있다. 반대로 큰 gradient는 매우
-작은 국소 변화에 민감하다는 뜻이며 자연스러운 크기의 patch 효과와 같지 않을 수 있다.
+gradient가 0에 가깝다고 구성요소가 불필요하다고 단정할 수도 없다.
+saturation, canceling path 또는 first-order에서 보이지 않는 곡률이 있을 수 있다.
+반대로 큰 gradient는 매우 작은 국소 변화에 민감하다는 뜻이며 자연스러운 크기의 patch 효과와 같지 않을 수 있다.
 
 \section{자동 회로 발견}
 
-자동 회로 발견은 모든 edge를 사람이 직접 검사하는 비용을 줄이려는 방법이다. ACDC는
-정한 dataset과 metric 아래에서 edge를 반복적으로 제거하고 성능 변화를 기준으로 graph를
-prune한다. GPT-2 small의 greater-than 과제에서 이전 수작업 연구가 찾은 5개 component
-type을 모두 다시 찾고, 약 32,000개 edge 가운데 68개를 선택한 결과가 보고되었다
-\citep{conmy2023acdc}.
+자동 회로 발견은 모든 edge를 사람이 직접 검사하는 비용을 줄이려는 방법이다.
+ACDC는 정한 dataset과 metric 아래에서 edge를 반복적으로 제거하고 성능 변화를 기준으로 graph를 prune한다.
+GPT-2 small의 greater-than 과제에서 이전 수작업 연구가 찾은 5개 component type을 모두 다시 찾고, 약 32,000개 edge 가운데 68개를 선택한 결과가 보고되었다 \citep{conmy2023acdc}.
 
 자동화가 해결하는 것은 주어진 node/edge space에서 후보 subgraph를 찾는 검색 문제다.
 다음 항목은 여전히 사람이 정의하거나 검증해야 한다.
@@ -183,10 +165,8 @@ type을 모두 다시 찾고, 약 32,000개 edge 가운데 68개를 선택한 �
   \item 새로운 반사실 입력에서 회로가 예측을 맞히는가?
 \end{itemize}
 
-2026년의 CircuitLasso는 high-dimensional SAE feature 회로를 sparse linear regression으로
-학습하여 intervention 기반 방법보다 적은 비용으로 확장하려는 접근을 제시했다. 저자들은
-benchmark에서 기존 intervention 방법과 비슷한 structural accuracy를 보고했지만, 이는
-2026년 6월 공개된 연구의 평가 범위에 한정된다 \citep{yin2026circuitlasso}.
+2026년의 CircuitLasso는 high-dimensional SAE feature 회로를 sparse linear regression으로 학습하여 intervention 기반 방법보다 적은 비용으로 확장하려는 접근을 제시했다.
+저자들은 benchmark에서 기존 intervention 방법과 비슷한 structural accuracy를 보고했지만, 이는 2026년 6월 공개된 연구의 평가 범위에 한정된다 \citep{yin2026circuitlasso}.
 
 \section{faithfulness, completeness, minimality}
 
@@ -195,42 +175,37 @@ benchmark에서 기존 intervention 방법과 비슷한 structural accuracy를 �
 
 \begin{description}[style=nextline,leftmargin=2em]
   \item[faithfulness]
-  회로 밖을 선택한 baseline으로 ablate했을 때 $C$가 전체 모델의 target behavior를 얼마나
-  보존하는가?
+  회로 밖을 선택한 baseline으로 ablate했을 때 $C$가 전체 모델의 target behavior를 얼마나 보존하는가?
 
   \item[completeness]
-  중요한 계산이 회로 밖에 남아 있지 않은가? 회로의 complement 또는 추가 구성요소가
-  설명되지 않은 성능을 만들지 않는지 검사한다.
+  중요한 계산이 회로 밖에 남아 있지 않은가?
+  회로의 complement 또는 추가 구성요소가 설명되지 않은 성능을 만들지 않는지 검사한다.
 
   \item[minimality]
   회로 안의 각 요소가 필요하거나, 제거하면 정한 기준 이상으로 설명력이 감소하는가?
 \end{description}
 
-이 개념에는 ablation 이후 모델을 어떻게 정의하는지가 들어간다. Miller 등은 circuit
-faithfulness score가 겉보기에 작은 ablation 방법 변화에도 크게 달라질 수 있음을 보고했다
-\citep{miller2024faithfulness}. 따라서 숫자 하나를 회로의 내재적 속성처럼 보고하면 안 된다.
-최소한 baseline distribution, patch 단위, metric, normalization과 회로 크기 곡선을
-함께 제시해야 한다.
+이 개념에는 ablation 이후 모델을 어떻게 정의하는지가 들어간다.
+Miller 등은 circuit faithfulness score가 겉보기에 작은 ablation 방법 변화에도 크게 달라질 수 있음을 보고했다 \citep{miller2024faithfulness}.
+따라서 숫자 하나를 회로의 내재적 속성처럼 보고하면 안 된다.
+최소한 baseline distribution, patch 단위, metric, normalization과 회로 크기 곡선을 함께 제시해야 한다.
 
 \begin{studybox}[회로 평가의 권장 보고]
-회로 평가는 보존 성능, 제거 효과, 크기 일치 대조군과 baseline 민감도를 함께 보고해야
-한다. 전체 모델, 회로만 남긴 모델, 회로를 제거한 모델과 무작위 크기 일치 회로를 같은
-표에 둔다. zero, mean과 resample ablation 가운데 가능한 둘 이상을 비교한다. 개별 sample
-분포와 bootstrap confidence interval을 보고하고, 회로 크기에 따른 metric curve를
-제시한다.
+회로 평가는 보존 성능, 제거 효과, 크기 일치 대조군과 baseline 민감도를 함께 보고해야 한다.
+전체 모델, 회로만 남긴 모델, 회로를 제거한 모델과 무작위 크기 일치 회로를 같은 표에 둔다.
+zero, mean과 resample ablation 가운데 가능한 둘 이상을 비교한다.
+개별 sample 분포와 bootstrap confidence interval을 보고하고, 회로 크기에 따른 metric curve를 제시한다.
 \end{studybox}
 
 \section{self-repair와 방법 민감도}
 
-구성요소를 ablate하면 downstream layer는 원래 실행에서 보이지 않던 보상 update를 만들
-수 있다. Hydra effect 연구는 한 attention layer를 제거했을 때 다른 layer가 일부 효과를
-보상하는 사례와 late MLP가 최대가능도 token을 낮추는 counterbalancing pattern을
-보고했다 \citep{mcgrath2023hydra}. 이때 ablation 후 최종 logit 변화는 제거한 구성요소의
-원래 direct contribution보다 작을 수 있다.
+구성요소를 ablate하면 downstream layer는 원래 실행에서 보이지 않던 보상 update를 만들 수 있다.
+Hydra effect 연구는 한 attention layer를 제거했을 때 다른 layer가 일부 효과를 보상하는 사례와 late MLP가 최대가능도 token을 낮추는 counterbalancing pattern을 보고했다 \citep{mcgrath2023hydra}.
+이때 ablation 후 최종 logit 변화는 제거한 구성요소의 원래 direct contribution보다 작을 수 있다.
 \index{self-repair@자기 복구(self-repair)}
 
-작은 ablation 효과에는 구성요소의 작은 기여 외에도 여러 대안 설명이 있다. 구체적으로
-다음 원인 가운데 하나 이상이 결과를 만들 수 있다.
+작은 ablation 효과에는 구성요소의 작은 기여 외에도 여러 대안 설명이 있다.
+구체적으로 다음 원인 가운데 하나 이상이 결과를 만들 수 있다.
 
 \begin{itemize}
   \item 원래 구성요소의 기여가 실제로 작다.
@@ -240,29 +215,23 @@ faithfulness score가 겉보기에 작은 ablation 방법 변화에도 크게 �
   \item baseline이 원 activation과 우연히 비슷한 기능을 보존한다.
 \end{itemize}
 
-activation patching의 corruption 방식과 metric만 바꾸어도 localization map이 달라질 수
-있다는 체계적 비교가 보고되었다 \citep{zhang2024activation}. 그러므로 한 heatmap을
-메커니즘 자체처럼 해석하지 말고, 합리적인 대안 설정에서 결론이 얼마나 유지되는지
-sensitivity analysis를 수행해야 한다.
+activation patching의 corruption 방식과 metric만 바꾸어도 localization map이 달라질 수 있다는 체계적 비교가 보고되었다 \citep{zhang2024activation}.
+그러므로 한 heatmap을 메커니즘 자체처럼 해석하지 말고, 합리적인 대안 설정에서 결론이 얼마나 유지되는지 sensitivity analysis를 수행해야 한다.
 
 \section{Phase 6 학습 점검}
 
 \begin{studybox}
 \begin{enumerate}
-  \item clean/corrupted prompt pair를 만들고 두 조건의 차이가 목표 변수 하나에 가깝도록
-        검토한다.
-  \item residual pre, attention output, MLP output을 position과 layer별로 patch하여
-        logit-difference recovery map을 만든다.
+  \item clean/corrupted prompt pair를 만들고 두 조건의 차이가 목표 변수 하나에 가깝도록 검토한다.
+  \item residual pre, attention output, MLP output을 position과 layer별로 patch하여 logit-difference recovery map을 만든다.
   \item 같은 실험을 probability와 loss metric으로 반복하고 localization 순위를 비교한다.
   \item zero, dataset mean과 resample ablation을 비교하여 baseline 민감도를 기록한다.
-  \item node patching으로 찾은 후보를 path patching으로 좁히고, sender와 receiver의
-        구체적인 알고리즘 역할을 반사실 prompt로 시험한다.
+  \item node patching으로 찾은 후보를 path patching으로 좁히고, sender와 receiver의 구체적인 알고리즘 역할을 반사실 prompt로 시험한다.
   \item 발견한 회로의 faithfulness, completeness와 minimality를 서로 다른 표에 보고한다.
 \end{enumerate}
 \end{studybox}
 
 \begin{factbox}
-Phase 6의 종료 조건은 intervention 코드를 실행할 수 있다는 것이 아니다. 개입이 답하는
-인과 질문, 개입이 만드는 distribution shift, metric과 baseline 의존성, 그리고 결과가
-localization인지 mechanism인지 정확히 구분할 수 있어야 한다.
+Phase 6의 종료 조건은 intervention 코드를 실행할 수 있다는 것이 아니다.
+개입이 답하는 인과 질문, 개입이 만드는 distribution shift, metric과 baseline 의존성, 그리고 결과가 localization인지 mechanism인지 정확히 구분할 수 있어야 한다.
 \end{factbox}
