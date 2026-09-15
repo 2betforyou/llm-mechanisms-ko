@@ -157,14 +157,23 @@ cosine similarity가 높으면 선택한 내적 아래 두 좌표 벡터의 각�
 \section{고윳값, SVD와 저차원 구조}
 
 정사각행렬 $\mat{A}$의 고유벡터 $\vect{v}\neq\vect{0}$와 고윳값 $\lambda$는 $\mat{A}\vect{v}=\lambda\vect{v}$를 만족한다.
-이는 $\mat{A}$가 특정 방향을 회전시키지 않고 scale만 바꾸는 경우를 기술한다.
-모든 행렬이 실수 고유기저로 대각화되는 것은 아니다.
-고윳값 분해는 보통 $A = Q \cap Q^{-1}$ 처럼 생각할 수 있지만, 정사각 행렬이 아닌 경우, 일반적으로 eigen decomposition 자체를 그대로 적용할 수 없다. 
+이는 $\mat{A}$가 $\vect{v}$가 span하는 직선을 보존하면서 그 벡터를 $\lambda$배로 scale한다는 뜻이다.
+모든 정사각행렬이 실수 고유기저로 diagonalize되는 것은 아니다.
+$\mat{A}$가 diagonalizable하고 고유벡터들을 $\mat{Q}$의 column으로 모으면 eigen decomposition은
+\begin{equation}
+  \mat{A}=\mat{Q}\Lambda\mat{Q}^{-1}
+\end{equation}
+로 쓸 수 있다.
+실수 대칭행렬에서는 $\mat{Q}$를 orthogonal matrix로 선택할 수 있으므로 $\mat{A}=\mat{Q}\Lambda\mat{Q}^{\mathsf T}$다.
 
-반면 임의의 실수행렬 $\mat{W}\in\R^{m\times d}$에는 singular value decomposition이 존재한다.
+반면 모든 실수행렬 $\mat{W}\in\R^{m\times d}$에는 singular value decomposition이 존재한다.
 \begin{equation}
   \mat{W}=\mat{U}\Sigma\mat{V}^{\mathsf T}.
 \end{equation}
+$\mat{U}\in\R^{m\times m}$와 $\mat{V}\in\R^{d\times d}$는 orthogonal matrix이고, $\Sigma\in\R^{m\times d}$의 diagonal에는 nonnegative singular values가 놓인다.
+$p=\min(m,d)$라 하고 singular values를 $\sigma_1\geq\cdots\geq\sigma_p\geq0$로 정렬하자.
+$\mat{W}^{\mathsf T}\mat{W}$의 고유벡터는 $\mat{V}$의 column이고, $\mat{W}\mat{W}^{\mathsf T}$의 고유벡터는 $\mat{U}$의 column이다.
+각 singular value는 $\sigma_i=\sqrt{\lambda_i(\mat{W}^{\mathsf T}\mat{W})}$로 계산할 수 있다.
 $\mat{V}$의 right singular vectors는 입력 방향, $\mat{U}$의 left singular vectors는 대응하는 출력 방향, diagonal의 singular values는 증폭률이다.
 상위 $r$개 항만 남긴 $\mat{W}_r$은 Frobenius norm과 spectral norm에서 최적의 rank-$r$ 근사다.
 
@@ -181,6 +190,37 @@ SVD는 다음 이유로 내부 분석에 직접 쓰인다.
 큰 singular value가 자동으로 의미 있는 feature를 뜻하지 않는다.
 SVD는 variance나 operator gain에 관한 최적성을 주지만 인간 개념, sparsity 또는 causal relevance를 목적으로 최적화하지 않는다.
 \end{limitbox}
+
+\subsection{SVD의 unit sphere--ellipsoid 변환 해석}
+
+column-vector convention에서 $\vect{y}=\mat{W}\vect{x}$의 계산 순서는
+\begin{equation}
+  \mat{W}\vect{x}
+  =\mat{U}\bigl(\Sigma(\mat{V}^{\mathsf T}\vect{x})\bigr)
+\end{equation}
+로 나타낼 수 있다.
+$\mat{V}^{\mathsf T}$는 입력을 right singular vector basis의 좌표로 바꾸고, $\Sigma$는 각 좌표를 대응하는 $\sigma_i$만큼 scale하면서 입력 차원과 출력 차원을 연결하며, $\mat{U}$는 그 결과를 output space의 left singular vector basis로 보낸다.
+따라서 2차원에서 unit circle은 ellipse로 변하고, 일반적인 차원에서 unit sphere는 nonzero singular values를 반축 길이로 갖는 ellipsoid로 변한다.
+rank가 부족하면 하나 이상의 반축 길이가 0이므로 결과는 더 낮은 차원의 degenerate ellipsoid가 된다.
+예를 들어
+\begin{equation}
+  \Sigma=
+  \begin{bmatrix}
+    5 & 0 \\
+    0 & 2
+  \end{bmatrix}
+\end{equation}
+이면 첫 번째 singular direction은 5배, 두 번째 singular direction은 2배 scale된다.
+큰 singular value는 대응하는 right singular direction의 operator gain이 크다는 뜻이지, 그 방향이 의미론적으로 중요한 information을 담는다는 뜻은 아니다.
+\Needspace{8\baselineskip}
+상위 $k$개 singular values와 singular vectors만 남기면
+\begin{equation}
+  \mat{W}_k
+  =\mat{U}_k\Sigma_k\mat{V}_k^{\mathsf T}
+  =\sum_{i=1}^{k}\sigma_i\vect{u}_i\vect{v}_i^{\mathsf T}
+\end{equation}
+인 low-rank approximation을 얻는다.
+여기서 ``중요한 direction''은 Frobenius norm 또는 spectral norm 아래의 근사 오차에 대한 중요성을 뜻하며, semantic importance를 뜻하지 않는다.
 
 \section{확률분포, logits와 softmax}
 
@@ -215,6 +255,16 @@ $\tau\to0^+$이면 최대 logit에 질량이 집중되고, 큰 $\tau$에서는 �
 \end{equation}
 이다.
 이 식은 정답 logit을 올리고 현재 확률에 비례해 다른 logits를 내리는 학습 신호를 정확히 보여준다.
+
+마지막 token position $t$의 residual vector를 $\vect{x}^{(L)}_t$라 하면 최종 logits는 대략
+\begin{equation}
+  \vect{z}_t
+  =\mat{W}_U\operatorname{Norm}_f(\vect{x}^{(L)}_t)+\vect{b}_U
+\end{equation}
+로 계산된다.
+따라서 final residual stream은 logits 계산의 입력이지만, 실제 출력 token은 final normalization, LM head, softmax와 decoding rule까지 거쳐 선택된다.
+logit lens는 중간 layer의 residual state에 final normalization과 unembedding을 적용하여 각 layer에서 어떤 token evidence를 읽을 수 있는지 관찰하는 진단 도구다 \citep{belrose2023tunedlens}.
+이 결과만으로 해당 information이 그 layer에서 처음 표현되기 시작했거나 model이 그 information을 causally 사용했다고 결론낼 수는 없다.
 
 \begin{factbox}
 softmax 확률은 모델과 context가 정한 다음-token 조건부분포다.
