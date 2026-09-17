@@ -266,61 +266,119 @@ mechanistic interpretability에서 QK circuit을 ``어디를 볼 것인가'', OV
 
 \section{MLP update와 잔차 덧셈}
 
+sequential pre-norm block에서 MLP는 attention update가 더해진 중간 residual state를 읽는다.
+attention sublayer의 출력과 MLP가 읽는 normalized activation을 다음과 같이 두자.
+\begin{align}
+  \mat{U}
+  &=\mat{X}+\Delta\mat{X}_{\mathrm{attn}},\\
+  \mat{R}_{\mathrm{mlp}}
+  &=\operatorname{Norm}_{2}(\mat{U})
+\end{align}
 각 position에 독립적으로 적용되는 기본 MLP는
 \begin{align}
-  \mat{G}&=\phi(\mat{R}\mat{W}_{\mathrm{in}}+\vect{b}_{\mathrm{in}}),\\
+  \mat{P}
+  &=\mat{R}_{\mathrm{mlp}}\mat{W}_{\mathrm{in}}+\vect{b}_{\mathrm{in}},\\
+  \mat{G}
+  &=\phi(\mat{P}),\\
   \Delta\mat{X}_{\mathrm{mlp}}
   &=\mat{G}\mat{W}_{\mathrm{out}}+\vect{b}_{\mathrm{out}}
 \end{align}
 로 쓸 수 있다.
-여기서 $\mat{W}_{\mathrm{in}}\in\R^{d\times d_{\mathrm{ff}}}$, $\mat{W}_{\mathrm{out}}\in\R^{d_{\mathrm{ff}}\times d}$이며 $\mat{G}$의 shape는 $\shape{B,T,d_{\mathrm{ff}}}$다.
-MLP 자체는 서로 다른 token position을 직접 섞지 않는다.
-position 사이의 통신은 attention에서 일어난다.
+여기서 $\mat{R}_{\mathrm{mlp}}\in\R^{B\times T\times d}$, $\mat{W}_{\mathrm{in}}\in\R^{d\times d_{\mathrm{ff}}}$, $\mat{W}_{\mathrm{out}}\in\R^{d_{\mathrm{ff}}\times d}$다.
+$\mat{P}$와 $\mat{G}$의 shape는 $\shape{B,T,d_{\mathrm{ff}}}$이고 $\Delta\mat{X}_{\mathrm{mlp}}$의 shape는 $\shape{B,T,d}$다.
+bias vector는 batch와 position 축으로 broadcast된다.
+
+같은 MLP weight가 모든 position에 적용되지만, position $i$의 출력은 오직 $\mat{R}_{\mathrm{mlp},b,i,:}$에서 계산된다.
+따라서 MLP 자체는 서로 다른 token position을 직접 섞지 않는다.
+다만 $\mat{R}_{\mathrm{mlp},b,i,:}$는 앞선 attention과 이전 block들이 만든 contextualized vector이므로 다른 position에서 온 정보가 이미 들어 있을 수 있다.
+이 장에서 다루는 표준 block에서는 position 사이의 직접적인 정보 전달은 attention에서 일어나고, MLP는 각 position 안에서 feature를 변환한다.
 \index{MLP@MLP}
 
-nonlinearity $\phi$가 없다면 두 행렬을 하나로 합칠 수 있다.
-비선형함수 또는 gating이 있기 때문에 MLP는 입력에 따라 서로 다른 중간 feature를 활성화하고 단일 선형사상보다 풍부한 함수를 표현한다.
-현대 모델의 SwiGLU는 두 input projection을 사용하는 gated 형태이므로 이 기본식과 parameterization이 다르다.
+예를 들어 $d=4096$이고 $d_{\mathrm{ff}}=14{,}336$이라 하자.
+$\mat{R}_{\mathrm{mlp}}$의 shape가 $\shape{B,T,4096}$이면 input projection은 각 token의 4096차원 vector를 14,336차원 pre-activation으로 보낸다.
+따라서 $\mat{P}$와 $\mat{G}$의 shape는 $\shape{B,T,14336}$다.
+down projection $\mat{W}_{\mathrm{out}}\in\R^{14336\times4096}$을 적용하면 $\Delta\mat{X}_{\mathrm{mlp}}$의 shape는 다시 $\shape{B,T,4096}$이 된다.
+이렇게 residual stream에 더할 수 있도록 마지막 차원을 $d$로 되돌린다.
+
+$\phi$가 identity이고 gating이 없다면 두 affine projection의 합성은 하나의 affine map으로 합칠 수 있다.
+nonlinearity 또는 gating이 있으면 MLP는 입력에 따라 서로 다른 intermediate feature를 활성화하므로 하나의 고정된 affine map으로 축약할 수 없다.
+현대 모델의 SwiGLU는 두 input projection을 element-wise gating으로 결합하므로 이 기본식과 parameterization이 다르며, 정확한 식은 \cref{chap:phase3}에서 다룬다.
 
 한 sequential pre-norm block의 전체 residual update는
 \begin{align}
-  \mat{U}&=\mat{X}+\Delta\mat{X}_{\mathrm{attn}},\\
-  \mat{X}_{\mathrm{next}}&=\mat{U}+\Delta\mat{X}_{\mathrm{mlp}}
+  \mat{U}
+  &=\mat{X}
+    +\operatorname{Attn}\!\left(\operatorname{Norm}_{1}(\mat{X})\right),\\
+  \mat{X}_{\mathrm{next}}
+  &=\mat{U}
+    +\operatorname{MLP}\!\left(\operatorname{Norm}_{2}(\mat{U})\right)
 \end{align}
 이다.
+attention update가 먼저 $\mat{U}$에 반영되고, MLP는 이 갱신된 $\mat{U}$를 normalize한 값을 읽는다.
+따라서 sequential block의 MLP update는 일반적으로 원래 $\mat{X}$만의 함수가 아니라 attention update에도 의존한다.
 덧셈으로 인해 이전 residual state로 향하는 identity path가 항상 존재한다.
+그러나 identity path가 있다는 사실만으로 이전 information이 이후 layer에서도 그대로 decode되거나 사용된다고 보장할 수는 없다.
 다만 normalization과 이후 layer가 개별 update를 비선형적으로 다시 읽으므로, 마지막 logit에 대한 각 update의 총 효과를 단순히 독립적인 상수 기여로 볼 수는 없다.
 
 \begin{factbox}
 ``hidden state가 layer마다 완전히 교체된다''는 설명보다 ``attention과 MLP가 residual stream에 update를 더한다''는 설명이 residual architecture의 계산을 더 직접적으로 반영한다.
-그러나 normalization 위치와 parallel/sequential block 여부는 모델마다 다르므로 실제 코드를 확인해야 한다.
+그러나 identity path는 기존 information의 보존을 보장하지 않으며, normalization 위치와 parallel/sequential block 여부도 모델마다 다르므로 실제 코드를 확인해야 한다.
 \end{factbox}
 
 \section{마지막 정규화, unembedding과 logits}
 
-unembedding 또는 LM head는 마지막 normalization 결과를 vocabulary logit으로 보낸다.
-$\mat{H}\in\R^{B\times T\times d}$라고 두면
-\begin{equation}
-  \mat{Z}_{b,t,:}=\mat{H}_{b,t,:}\mat{W}_{U}^{\mathsf T}+\vect{b}_{U},
-  \qquad \mat{W}_{U}\in\R^{V\times d}
-\end{equation}
+마지막 block의 residual stream을 $\mat{X}^{(L)}\in\R^{B\times T\times d}$라고 하자.
+final normalization과 unembedding 또는 LM head는
+\begin{align}
+  \mat{H}
+  &=\operatorname{Norm}_{f}(\mat{X}^{(L)}),\\
+  \mat{Z}
+  &=\mat{H}\mat{W}_{U}^{\mathsf T}+\vect{b}_{U},
+  &\mat{W}_{U}&\in\R^{V\times d}
+\end{align}
 를 계산한다.
-$\mat{Z}$의 shape는 $\shape{B,T,V}$다.
-prompt 다음 token을 예측할 때는 마지막 유효 position $T$의 logits를 사용한다.
-훈련에서는 보통 모든 유효 position의 logits를 동시에 계산하여 각 position의 다음 token loss를 구한다.
+$\mat{H}$의 shape는 $\shape{B,T,d}$이고 $\mat{Z}$의 shape는 $\shape{B,T,V}$다.
+$\mat{W}_{U}$의 각 row는 residual dimension의 vector를 특정 vocabulary token의 logit으로 읽는 unembedding direction이다.
+bias 사용 여부와 input embedding과의 weight tying 여부는 모델마다 다르다.
 
-token $v$의 logit은 row-vector 관례에서
+prompt 다음 token을 예측할 때는 각 sequence의 마지막 유효 position $T_b$에서 $\mat{Z}_{b,T_b,:}\in\R^{V}$를 선택한다.
+이 vector에 softmax를 적용하면
 \begin{equation}
-  z_v=\langle\vect{h}_{T},\vect{w}_{U,v}\rangle+b_{U,v}
+  p(x_{T_b+1}=v\mid x_{1:T_b})
+  =\softmax(\mat{Z}_{b,T_b,:})_v
+\end{equation}
+인 다음-token 조건부분포를 얻는다.
+
+훈련에서는 causal mask 덕분에 여러 position의 logits를 한 번에 계산할 수 있다.
+position $t$의 logit row는 같은 position의 input token $x_t$가 아니라 다음 token $x_{t+1}$을 target으로 사용한다.
+padding이나 별도의 loss mask가 없다고 단순화하면 한 sequence의 negative log-likelihood는
+\begin{equation}
+  \mathcal{L}
+  =-\sum_{t=1}^{T-1}
+   \log\softmax(\mat{Z}_{t,:})_{x_{t+1}}
+\end{equation}
+로 쓸 수 있다.
+실제 batch에서는 padding, special token과 학습 대상이 아닌 position을 loss mask로 제외할 수 있다.
+
+position $t$에서 token $v$의 logit은 row-vector 관례로
+\begin{equation}
+  z_{t,v}
+  =\langle\vect{h}_{t},\vect{w}_{U,v}\rangle+b_{U,v}
 \end{equation}
 이다.
 residual update $\Delta\vect{h}$가 normalization을 거치지 않는 이상적인 선형 경로에서 주는 direct logit contribution은 $\langle\Delta\vect{h},\vect{w}_{U,v}\rangle$다.
 실제 모델의 final normalization을 무시하면 오차가 생길 수 있으므로 direct logit attribution의 정의를 명시해야 한다.
 
+예를 들어 $B=1$, $T=8$, $d=4096$, $V=128{,}256$이라 하자.
+final normalization 결과 $\mat{H}$의 shape는 $\shape{1,8,4096}$이고 $\mat{W}_{U}^{\mathsf T}$의 shape는 $\shape{4096,128256}$이다.
+두 tensor를 곱하면 모든 position의 logits $\mat{Z}$는 $\shape{1,8,128256}$이 된다.
+마지막 유효 position을 선택하면 next-token logits의 shape는 $\shape{1,128256}$이다.
+
 \begin{factbox}
-logit은 normalization 전의 score이며 확률이 아니다.
+logit은 softmax가 확률로 정규화하기 전의 score이며 확률이 아니다.
 softmax는 vocabulary의 모든 logit을 함께 사용한다.
 특정 token의 logit이 증가해도 다른 token의 logit이 더 많이 증가하면 그 token의 확률은 감소할 수 있다.
+또한 final normalization은 residual vector의 모든 coordinate를 함께 읽으므로, 한 residual update의 정확한 logit 효과가 그 update와 unembedding direction의 내적만으로 항상 주어지는 것은 아니다.
 \end{factbox}
 
 \section{autoregressive generation}
@@ -330,10 +388,28 @@ softmax는 vocabulary의 모든 logit을 함께 사용한다.
 
 \begin{itemize}
   \item greedy decoding은 $\argmax_v z_v$를 선택한다.
-  \item temperature sampling은 $\softmax(\vect{z}/\tau)$에서 표본을 뽑는다.
-  \item top-$k$ sampling은 상위 $k$개 후보 밖의 질량을 제거하고 다시 정규화한다.
-  \item nucleus 또는 top-$p$ sampling은 누적 확률이 기준 $p$에 도달하는 최소 후보 집합을 선택한 뒤 다시 정규화한다 \citep{holtzman2020degeneration}.
+  \item temperature sampling은 $\tau>0$에 대해 $\softmax(\vect{z}/\tau)$에서 표본을 뽑는다.
+  \item top-$k$ sampling은 logit이 큰 상위 $k$개 token만 남기고 나머지를 제외한 뒤 다시 정규화한다.
+  \item nucleus 또는 top-$p$ sampling은 확률이 큰 순서로 token을 정렬하고 누적 확률이 기준 $p$ 이상이 되는 최소 후보 집합을 남긴 뒤 다시 정규화한다 \citep{holtzman2020degeneration}.
 \end{itemize}
+
+대표적인 sampling pipeline은 다음 순서로 이해할 수 있다.
+
+\begin{enumerate}
+  \item 현재 prefix를 모델에 넣어 마지막 유효 position의 logits를 계산한다.
+  \item sampling을 사용하면 temperature로 logits의 상대적 scale을 조정한다.
+  \item top-$k$ 또는 top-$p$를 사용하면 후보 집합 밖의 token을 제거한다.
+  \item 남은 후보를 정규화한 분포에서 token을 뽑거나 greedy rule로 하나를 선택한다.
+  \item 선택한 token을 prefix 뒤에 붙이고 다음 generation step을 시작한다.
+\end{enumerate}
+
+예를 들어 네 token $(A,B,C,D)$의 logits가 $\vect{z}=(3,2,1,0)$이라고 하자.
+greedy decoding은 가장 큰 logit을 가진 $A$를 선택한다.
+$\tau=1$인 원래 softmax 확률은 대략 $(0.644,0.237,0.087,0.032)$이므로 top-$2$는 $A$와 $B$만 후보로 남긴다.
+top-$p$에서 $p=0.8$을 사용해도 $A$ 하나의 누적 확률은 0.8보다 작고 $A$와 $B$의 누적 확률은 약 0.881이므로 두 token을 남긴다.
+$\tau=2$이면 확률은 대략 $(0.455,0.276,0.167,0.102)$로 평평해지고, $\tau=0.5$이면 대략 $(0.865,0.117,0.016,0.002)$로 가장 큰 logit에 더 집중된다.
+sampling에서는 후보로 남은 token 가운데 반드시 가장 큰 logit의 token만 선택되는 것은 아니다.
+temperature, top-$k$와 top-$p$는 해당 generation step의 model weight나 forward-pass 내부 activation을 바꾸는 것이 아니라 forward-pass가 만든 logits에서 decoding distribution을 구성하는 방법을 바꾼다.
 
 선택한 token을 sequence 뒤에 붙여 같은 조건부 예측을 반복한다.
 \begin{equation}
@@ -344,39 +420,53 @@ softmax는 vocabulary의 모든 logit을 함께 사용한다.
 greedy에서는 선택이 결정론적이지만, 앞 단계에서 선택한 token이 이후 모든 조건부분포의 입력을 바꾸므로 초기 차이는 계속 전파될 수 있다.
 
 구현에서 ``temperature 0''은 대개 0으로 나누어 softmax를 계산한다는 뜻이 아니라 sampling을 끄고 argmax를 선택한다는 설정 이름이다.
+실제 구현은 prompt 전체를 처리하는 prefill과 새 token을 하나씩 처리하는 decode를 구분하고 KV cache로 과거 key와 value를 재사용할 수 있으며, 이 실행 경로는 \cref{chap:phase3}에서 다룬다.
 
 \section{완전한 shape 추적 예제}
 
 완전한 shape 추적은 token ID부터 next-token logits까지 각 축의 의미를 보존해야 한다.
 \Cref{tab:shape-trace}는 $B=1$, $T=8$, $d=4096$, $H=32$, $d_h=128$인 MHA block을 가정하며, vocabulary와 MLP 크기는 예시로 각각 $128{,}256$, $14{,}336$을 사용한다.
+이 표의 MLP는 위에서 정의한 하나의 input projection과 nonlinearity를 사용하는 기본 MLP이며, SwiGLU에서는 intermediate projection이 둘로 나뉜다.
 
 \begin{table}[htbp]
 \centering
-\caption{한 block과 LM head의 shape 추적}
+\small
+\caption{한 sequential pre-norm block과 LM head의 shape 추적}
 \label{tab:shape-trace}
 \begin{tabularx}{\textwidth}{@{}YYl@{}}
 \toprule
 대상 & 계산 & shape \\
 \midrule
 token IDs & tokenizer 출력 & $\shape{1,8}$ \\
-embedding/residual & $\mat{E}[\mat{t}]$ & $\shape{1,8,4096}$ \\
-query & reshape$(\mat{R}\mat{W}_Q)$ & $\shape{1,32,8,128}$ \\
-key & reshape$(\mat{R}\mat{W}_K)$ & $\shape{1,32,8,128}$ \\
-value & reshape$(\mat{R}\mat{W}_V)$ & $\shape{1,32,8,128}$ \\
-scores/weights & $\mat{Q}\mat{K}^{\mathsf T}$, softmax & $\shape{1,32,8,8}$ \\
+embedding/residual $\mat{X}$ & $\mat{E}[\mat{t}]$ & $\shape{1,8,4096}$ \\
+attention norm $\mat{R}_{\mathrm{attn}}$ & $\operatorname{Norm}_{1}(\mat{X})$ & $\shape{1,8,4096}$ \\
+query & reshape$(\mat{R}_{\mathrm{attn}}\mat{W}_Q)$ & $\shape{1,32,8,128}$ \\
+key & reshape$(\mat{R}_{\mathrm{attn}}\mat{W}_K)$ & $\shape{1,32,8,128}$ \\
+value & reshape$(\mat{R}_{\mathrm{attn}}\mat{W}_V)$ & $\shape{1,32,8,128}$ \\
+scores & $\mat{Q}\mat{K}^{\mathsf T}/\sqrt{128}+\mat{M}$ & $\shape{1,32,8,8}$ \\
+weights & source 축 softmax & $\shape{1,32,8,8}$ \\
 head output & $\mat{A}\mat{V}$ & $\shape{1,32,8,128}$ \\
-attention update & concat, $\mat{W}_O$ & $\shape{1,8,4096}$ \\
-MLP intermediate & gated/nonlinear projection & $\shape{1,8,14336}$ \\
-MLP update & down projection & $\shape{1,8,4096}$ \\
-logits & final norm, LM head & $\shape{1,8,128256}$ \\
+concatenated output & transpose, reshape & $\shape{1,8,4096}$ \\
+attention update & $\mat{O}_{\mathrm{cat}}\mat{W}_O$ & $\shape{1,8,4096}$ \\
+attention residual $\mat{U}$ & $\mat{X}+\Delta\mat{X}_{\mathrm{attn}}$ & $\shape{1,8,4096}$ \\
+MLP norm $\mat{R}_{\mathrm{mlp}}$ & $\operatorname{Norm}_{2}(\mat{U})$ & $\shape{1,8,4096}$ \\
+MLP pre-activation $\mat{P}$ & $\mat{R}_{\mathrm{mlp}}\mat{W}_{\mathrm{in}}+\vect{b}_{\mathrm{in}}$ & $\shape{1,8,14336}$ \\
+MLP activation $\mat{G}$ & $\phi(\mat{P})$ & $\shape{1,8,14336}$ \\
+MLP update & $\mat{G}\mat{W}_{\mathrm{out}}+\vect{b}_{\mathrm{out}}$ & $\shape{1,8,4096}$ \\
+block output & $\mat{U}+\Delta\mat{X}_{\mathrm{mlp}}$ & $\shape{1,8,4096}$ \\
+final norm $\mat{H}$ & $\operatorname{Norm}_{f}(\mat{X}^{(L)})$ & $\shape{1,8,4096}$ \\
+logits & $\mat{H}\mat{W}_{U}^{\mathsf T}+\vect{b}_{U}$ & $\shape{1,8,128256}$ \\
 next-token logits & 마지막 position 선택 & $\shape{1,128256}$ \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
+query, key와 value를 만들 때의 reshape는 model dimension을 head 수와 head dimension으로 나누고 attention 계산이 편한 축 순서 $\shape{B,H,T,d_h}$로 transpose하는 과정이다.
+head output을 합칠 때는 이 축 변환을 되돌려 $\shape{B,T,Hd_h}$를 만들며, 이 예시에서는 $Hd_h=4096$이다.
 GQA 모델에서는 key와 value의 head 수가 query head 수보다 작으므로 위 key/value shape가 달라진다.
 이 차이는 \cref{chap:phase3}에서 정확히 전개한다.
 
+\Needspace{38\baselineskip}
 \section{Phase 2 학습 점검}
 
 \begin{studybox}
@@ -384,13 +474,19 @@ GQA 모델에서는 key와 value의 head 수가 query head 수보다 작으므�
   \item 길이 3, head dimension 2인 causal attention의 score, mask, softmax와 value 가중합을 손으로 계산한다.
   \item query의 position과 key/value의 position을 문장으로 설명하고 attention matrix의 행과 열을 표시한다.
   \item 한 head의 concatenation 표현을 head별 residual update의 합으로 바꿔 쓴다.
+  \item attention이 읽는 $\mat{R}_{\mathrm{attn}}$과 MLP가 읽는 $\mat{R}_{\mathrm{mlp}}$가 왜 다른 tensor인지 설명한다.
+  \item 작은 MLP의 input projection, nonlinearity와 output projection을 손으로 계산한다.
+  \item MLP가 position을 직접 섞지 않으면서도 contextualized information을 처리할 수 있는 이유를 설명한다.
   \item pre-norm sequential block의 모든 중간 tensor shape를 적는다.
+  \item position $t$의 logits와 학습 target $x_{t+1}$을 맞추고 loss mask가 필요한 위치를 표시한다.
   \item 마지막 residual update가 특정 token logit에 미치는 direct contribution을 unembedding vector와의 내적으로 계산한다.
-  \item greedy, temperature, top-$k$, top-$p$가 모델 순전파와 token 선택 중 어느 부분을 바꾸는지 구분한다.
+  \item 같은 toy logits에 greedy, temperature, top-$k$와 top-$p$를 적용하고 남는 후보와 확률을 비교한다.
+  \item 한 generation step에서 선택한 token이 다음 step의 조건부분포를 어떻게 바꾸는지 설명한다.
 \end{enumerate}
 \end{studybox}
 
 \begin{limitbox}
-이 장의 수식은 ``어떻게 계산되는가''에 완전한 답을 줄 수 있다.
+이 장의 수식은 architecture, parameter와 실행 조건을 고정했을 때 각 tensor가 어떻게 계산되는지 명시한다.
 그러나 특정 head가 왜 Obama와 출생지의 관계를 처리하는지, MLP activation이 어떤 feature를 나타내는지, 어느 경로가 Honolulu logit에 인과적으로 필요했는지는 수식만으로 정해지지 않는다.
+높은 activation이나 attention weight는 분석할 후보를 제시할 수 있지만 causal importance를 증명하지는 않으며, 이런 주장은 intervention과 별도의 검증이 필요하다.
 \end{limitbox}
