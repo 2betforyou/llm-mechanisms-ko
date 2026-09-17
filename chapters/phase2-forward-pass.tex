@@ -12,7 +12,8 @@ pre-normalization을 사용하는 순차형 block은 attention update와 MLP upd
 \begin{align}
   \mat{U}^{(\ell)}
     &=\mat{X}^{(\ell)}+\operatorname{Attn}^{(\ell)}
-       \left(\operatorname{Norm}^{(\ell)}_1(\mat{X}^{(\ell)})\right), \\
+       \left(\operatorname{Norm}^{(\ell)}_1(\mat{X}^{(\ell)})\right),
+       \label{eq:attention-residual-update} \\
   \mat{X}^{(\ell+1)}
     &=\mat{U}^{(\ell)}+\operatorname{MLP}^{(\ell)}
        \left(\operatorname{Norm}^{(\ell)}_2(\mat{U}^{(\ell)})\right).
@@ -25,6 +26,7 @@ pre-normalization을 사용하는 순차형 block은 attention update와 MLP upd
   p(x_{T+1}=v\mid x_{1:T})&=\softmax(\mat{Z}_{:,T,:})_v
 \end{align}
 를 계산한다.
+\Cref{eq:attention-residual-update}은 현재 residual stream $\mat{X}^{(\ell)}$을 normalize하여 multi-head attention에 넣고, attention이 계산한 update를 원래의 residual stream에 더하는 식이다.
 실제 구현은 bias를 생략하거나 embedding과 unembedding weight를 공유할 수 있다.
 원래 Transformer의 모든 변형이 \cref{eq:prenorm-block}과 같은 배치를 사용하는 것은 아니다 \citep{vaswani2017attention,xiong2020layernorm}.
 
@@ -63,13 +65,18 @@ position $i$의 query는 destination, position $j$의 key와 value는 source라�
 \section{토큰 ID에서 residual stream으로}
 
 tokenizer가 문자열을 정수열 $(t_1,\ldots,t_T)$로 바꾸면 $t_i\in\{0,\ldots,V-1\}$이다.
+여기서 $t_i$는 하나의 token ID이고 $V$는 vocabulary size다.
 embedding matrix $\mat{E}\in\R^{V\times d}$에서 각 row를 선택하여
 \begin{equation}
   \mat{X}^{(0)}_{b,i,:}=\mat{E}_{t_{b,i},:}
 \end{equation}
 를 얻는다.
+여기서 $V$는 row의 수인 vocabulary size이고 $d$는 column의 수인 embedding dimension이다.
+즉, 각 token ID는 $d$차원 learned vector 하나에 대응한다.
 absolute positional embedding을 사용하는 모델은 position vector를 여기서 더할 수 있다.
 RoPE를 사용하는 모델은 일반적으로 input embedding에 position vector를 더하지 않고 attention 안의 query와 key를 회전한다.
+token ID를 embedding matrix의 row index로 사용하여 그 token ID에 대응하는 vector를 가져온다.
+absolute positional embedding을 사용하면 첫 block 전에 position vector를 더하고, RoPE를 사용하면 각 attention layer에서 query와 key에 position-dependent rotation을 적용한다.
 자세한 내용은 \cref{chap:phase3}에서 다룬다.
 
 padding을 포함하는 batch에서는 padding 위치를 막는 mask가 causal mask와 별도로 필요할 수 있다.
@@ -83,6 +90,20 @@ tokenizer가 만든 token 경계와 모델이 처리하는 position은 문자나
 
 \section{한 attention head의 모든 계산}
 
+attention head는 각 destination position에서 causal mask가 허용하는 현재 또는 과거 source position 가운데 어디를 참고할지 정하고, 그 위치들의 value 정보를 섞어 가져오는 계산 단위다.
+한 attention head의 계산은 다음 네 단계로 요약할 수 있다.
+
+\begin{enumerate}
+  \item query projection으로 destination position이 찾는 정보의 routing feature를 계산한다.
+  \item key projection으로 각 source position이 제공할 수 있는 정보의 routing feature를 계산한다.
+  \Needspace{3\baselineskip}
+  \item query와 key를 비교하고 causal mask와 softmax를 적용하여 attention weights를 계산한다.
+  \item attention weights로 source별 value를 가중합하여 head output을 만든다.
+\end{enumerate}
+
+이 설명은 Q, K와 V의 계산상 역할을 나타내는 intuition이며, 개별 vector가 반드시 사람이 이름 붙일 수 있는 의미 하나와 대응한다는 뜻은 아니다.
+Q는 ``현재 destination이 어떤 정보를 찾는가'', K는 ``각 source가 어떤 정보를 제공할 수 있는가'', V는 ``선택된 source에서 실제로 전달할 내용이 무엇인가''라는 식으로 이해할 수 있다.
+
 한 attention head는 정규화한 residual stream에서 query, key와 value를 각각 투영한다.
 $\mat{R}=\operatorname{Norm}(\mat{X})\in\R^{B\times T\times d}$라고 두면 head $h$의 세 projection은 다음과 같다.
 \begin{align}
@@ -95,6 +116,21 @@ $\mat{R}=\operatorname{Norm}(\mat{X})\in\R^{B\times T\times d}$라고 두면 hea
 \end{align}
 따라서 $\mat{Q}^{h},\mat{K}^{h},\mat{V}^{h}$의 shape는 모두 $\shape{B,T,d_h}$다.
 
+계산 순서를 수식과 연결하면 다음과 같다.
+
+\begin{enumerate}
+  \item residual stream $\mat{X}\in\R^{B\times T\times d}$를 normalize하여 $\mat{R}=\operatorname{Norm}(\mat{X})\in\R^{B\times T\times d}$를 만든다.
+  \item 각 head는 같은 $\mat{R}$에 서로 다른 weight matrix를 곱하여 $\mat{Q}^{h}=\mat{R}\mat{W}^{h}_{Q}$, $\mat{K}^{h}=\mat{R}\mat{W}^{h}_{K}$와 $\mat{V}^{h}=\mat{R}\mat{W}^{h}_{V}$를 만든다.
+\end{enumerate}
+
+예를 들어 ``The cat sat on the mat because it was tired.''라는 문장에서 coreference를 수행하는 hypothetical head를 생각해 보자.
+설명을 단순화하기 위해 ``cat''과 ``it''이 각각 하나의 token position에 대응한다고 가정한다.
+``it''의 query는 ``내가 가리키는 대상이 누구인가''와 관련된 routing feature를 가질 수 있다.
+``cat''의 key는 ``대명사가 참조할 수 있는 동물 또는 명사''와 관련된 routing feature를 가질 수 있다.
+``it'' position의 query와 ``cat'' position의 key가 다른 허용된 source들의 key보다 잘 맞으면 softmax 뒤에서 ``cat'' position에 큰 attention weight가 배정될 수 있다.
+이때 head가 가져오는 내용은 ``cat''의 raw residual vector가 아니라 해당 position의 value projection이다.
+실제 tokenizer에서는 한 단어가 여러 token으로 분리될 수 있고, 실제 head가 반드시 이런 human-interpretable 역할을 수행한다는 보장도 없다.
+
 destination $i$와 source $j$ 사이의 attention score는
 \begin{equation}
   S^h_{b,i,j}=
@@ -102,7 +138,11 @@ destination $i$와 source $j$ 사이의 attention score는
   +M_{i,j}
 \end{equation}
 이다.
-causal mask는
+여기서 destination position $i$의 query와 source position $j$의 key가 얼마나 잘 맞는지를 dot product로 계산한다.
+한 raw score의 절댓값만으로 attention weight가 크다고 결론낼 수 없으며, 같은 destination row의 다른 source scores와 함께 mask와 softmax를 적용한 뒤 비교해야 한다.
+query와 key의 각 성분이 비슷한 분산을 가지고 약하게 상관된다고 가정하면 dot product의 분산은 대략 $d_h$에 비례하므로, $\sqrt{d_h}$로 나누어 score의 scale을 안정화한다.
+
+causal mask는 decoder-only Transformer가 미래 token을 직접 참고하지 못하게 하며,
 \begin{equation}
   M_{i,j}=\begin{cases}
   0,&j\le i,\\
@@ -117,6 +157,7 @@ source 축에 row-wise softmax를 적용하면
   \qquad \sum_j A^h_{b,i,j}=1
 \end{equation}
 을 얻는다.
+각 destination row에서 attention weights는 nonnegative이고 합이 1이지만, 특정 source가 의미론적으로 정답일 확률로 calibration된 값은 아니다.
 masked position의 weight는 이상적인 실수 연산에서 0이다.
 \index{causal attention@인과적 어텐션(causal attention)}
 \index{QKV@query--key--value (QKV)}
@@ -128,6 +169,7 @@ masked position의 weight는 이상적인 실수 연산에서 0이다.
 \end{equation}
 $\mat{A}^{h}$의 shape는 $\shape{B,T,T}$이고 $\mat{O}^{h}$의 shape는 $\shape{B,T,d_h}$다.
 causal mask 때문에 position $i$의 출력은 $j\le i$인 value만 직접 사용한다.
+즉, residual vector 자체를 가져오는 것이 아니라 $\vect{v}^{h}_{b,j}=\mat{R}_{b,j,:}\mat{W}^{h}_{V}$라는 value projection을 거친 정보를 가져온다.
 
 \begin{interpretbox}{``정보를 가져온다''는 직관}
 \Cref{eq:head-weighted-sum} 때문에 attention을 source position에서 value 정보를 가져오는 연산이라고 설명할 수 있다.
@@ -138,6 +180,7 @@ attention weight만 보아서는 output projection 이후의 효과를 알 수 �
 \section{multi-head attention과 output projection}
 
 multi-head attention은 $H$개 head의 출력을 이어 붙인 뒤 output projection으로 residual 차원에 되돌린다.
+즉, 여러 head의 결과를 하나로 합쳐서 다시 residual stream의 차원 $d$로 되돌린다.
 head 출력을 마지막 축에서 이어 붙이면
 \begin{equation}
   \mat{O}_{\mathrm{cat}}=\operatorname{Concat}
@@ -160,9 +203,66 @@ $\mat{W}_{O}$를 head별 row block으로 나누면 전체 출력은 head별 resi
 \end{equation}
 따라서 concatenation 구현과 head별 합 표현은 서로 다른 모델이 아니라 같은 선형연산의 두 표기다 \citep{elhage2021framework}.
 
-attention pattern $\mat{A}^{h}$는 input에 의존하며 softmax 때문에 비선형이다.
-그러나 특정 input에서 $\mat{A}^{h}$를 고정하면 value와 output projection을 거치는 경로는 residual activation에 대해 선형이다.
-회로 분석이 QK와 OV 경로를 분리하는 이유가 여기에 있다.
+예를 들어, $d=4096$이고 head가 $H=32$라 하면 $d_h=4096/32=128$이다.
+즉, 각 head는 token마다 128차원짜리 결과를 낸다.
+이 32개 head output을 이어 붙이면
+\begin{equation}
+  \mat{O}_{\mathrm{cat}}
+  =\operatorname{Concat}(\mat{O}^{1},\ldots,\mat{O}^{32}),
+  \qquad
+  \operatorname{shape}(\mat{O}_{\mathrm{cat}})
+  =\shape{B,T,32\cdot128}
+  =\shape{B,T,4096}
+\end{equation}
+가 된다.
+$\mat{W}_{O}\in\R^{4096\times4096}$는 output projection matrix다.
+이 $\mat{W}_{O}$를 $\mat{O}_{\mathrm{cat}}$에 곱하면
+\begin{equation}
+  \Delta\mat{X}_{\mathrm{attn}}
+  =\mat{O}_{\mathrm{cat}}\mat{W}_{O},
+  \qquad
+  \operatorname{shape}(\Delta\mat{X}_{\mathrm{attn}})
+  =\shape{B,T,4096}
+\end{equation}
+가 된다.
+따라서 단순히 이어 붙인 32개 head output은 output projection에서 서로 섞이고 residual stream에 쓸 수 있는 4096차원 update로 변환된다.
+
+attention pattern $\mat{A}^{h}$는 query와 key에서 계산되므로 input에 의존하고, dot product와 softmax를 거치므로 전체 attention은 input에 대한 단순한 선형변환이 아니다.
+pre-normalization block에서는 $\mat{Q}^{h}=\mat{R}\mat{W}^{h}_{Q}$와 $\mat{K}^{h}=\mat{R}\mat{W}^{h}_{K}$이므로, $\mat{R}$이 달라지면 attention pattern도 달라질 수 있다.
+
+head $h$의 QK와 OV weight product를
+\begin{equation}
+  \mat{W}^{h}_{QK}
+  =\mat{W}^{h}_{Q}(\mat{W}^{h}_{K})^{\mathsf T}
+  \in\R^{d\times d},
+  \qquad
+  \mat{W}^{h}_{OV}
+  =\mat{W}^{h}_{V}\mat{W}^{h}_{O}
+  \in\R^{d\times d}
+\end{equation}
+로 정의할 수 있다.
+그러면 attention score는
+\begin{equation}
+  S^{h}_{b,i,j}
+  =\frac{\mat{R}_{b,i,:}\mat{W}^{h}_{QK}\mat{R}_{b,j,:}^{\mathsf T}}
+         {\sqrt{d_h}}
+  +M_{i,j}
+\end{equation}
+로 쓸 수 있고, QK circuit은 destination과 source 사이의 routing score를 결정한다.
+OV circuit은 선택된 source의 normalized residual vector를 residual stream에 쓸 방향으로 변환하며, head별 update는
+\begin{equation}
+  \Delta\mat{X}^{h}_{\mathrm{attn},b,i,:}
+  =\sum_{j=1}^{T}
+   A^{h}_{b,i,j}\mat{R}_{b,j,:}\mat{W}^{h}_{OV}
+\end{equation}
+로 쓸 수 있다.
+
+특정 input에서 미리 계산한 attention pattern $\mat{A}^{h}$를 고정했다고 하자.
+이때 head output은 $\mat{O}^{h}=\mat{A}^{h}\mat{V}^{h}=\mat{A}^{h}\mat{R}\mat{W}^{h}_{V}$다.
+output projection까지 포함한 head별 update는 $\Delta\mat{X}^{h}_{\mathrm{attn}}=\mat{A}^{h}\mat{R}\mat{W}^{h}_{V}\mat{W}^{h}_{O}=\mat{A}^{h}\mat{R}\mat{W}^{h}_{OV}$다.
+$\mat{A}^{h}$, $\mat{W}^{h}_{V}$와 $\mat{W}^{h}_{O}$를 모두 고정하면 이 경로는 normalized activation $\mat{R}$에 대해 선형이다.
+그러나 $\mat{R}=\operatorname{Norm}(\mat{X})$이므로 normalization까지 포함한 raw residual stream $\mat{X}$에서 update로 가는 전체 함수가 선형이라는 뜻은 아니다.
+mechanistic interpretability에서 QK circuit을 ``어디를 볼 것인가'', OV circuit을 ``선택한 위치에서 어떤 정보를 residual stream에 쓸 것인가''로 구분하는 이유가 여기에 있다.
 
 \section{MLP update와 잔차 덧셈}
 
